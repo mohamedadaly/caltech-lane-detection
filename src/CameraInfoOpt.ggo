@@ -1,0 +1,27 @@
+#Parameters for camera info
+#command line: gengetopt -i cameraInfoOpt.ggo -F cameraInfoOpt \
+#	  --func-name=cameraInfoParser --arg-struct-name=CameraInfoParserInfo \
+#	  --conf-parser
+
+package "inversePerspectiveMapping"
+version "0.1"
+
+option "focalLengthX"  	- 
+	"Focal lenght in horizontal direction in pixels" double required
+option "focalLengthY" 	- 
+	"Focal lenght in vertical direction in pixels" double required
+option "opticalCenterX" - 
+	"X-coordinate of optical center in pixels" double required
+option "opticalCenterY" - 
+	"Y-coordinate of optical center in pixels" double required
+option "cameraHeight" 	- 
+	"Height of camera above ground in mm" double required
+option "pitch" 			- 
+	"pitch of camera in degrees (+ve downwards)" double required
+option "yaw" 			- 
+	"yaw of camera in degrees (+ve clockwise)" double required
+option "imageWidth" 	- 
+	"width of image in pixels" double required
+option "imageHeight" 	- 
+	"height of image in pixels" double required
+

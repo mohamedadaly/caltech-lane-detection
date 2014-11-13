@@ -1,0 +1,269 @@
+#Parameters for Lane Detector
+#command line: gengetopt -i LaneDetectorOpt.ggo -F LaneDetectorOpt \
+#	  --func-name=LaneDetectorParser --arg-struct-name=LaneDetectorParserInfo \
+#	  --conf-parser
+
+package "LaneDetector"
+version "0.1"
+
+option "ipmWidth"  	-
+	"width of IPM image to use" int required
+option "ipmHeight"  	-
+	"height of IPM image to use" int required
+option "ipmTop"  	-
+	"Top point in original image of region to make IPM for" int required
+option "ipmLeft"  	-
+	"Left point in original image of region to make IPM for" int required
+option "ipmRight"  	-
+	"Right point in original image region to make IPM for" int required
+option "ipmBottom"  	-
+	"Bottom point in original image region to make IPM for" int required
+
+option "ipmInterpolation" -
+	"The method to use for IPM interpolation" int required
+
+option "lineWidth" 	-
+	"width of line to detect in mm (in the world)" double required
+option "lineHeight" -
+	"height of line to detect in mm (in the world)" double required
+option "kernelWidth" -
+	"widht of kernel to use for filtering" int required
+option "kernelHeight" 	-
+	"Height of kernel to use for filtering" int required
+option "lowerQuantile" 			-
+	"lower quantile to use for thresholding the filtered image"
+	double required
+option "localMaxima" 			-
+	"whether to return local maxima or just the maximum"
+	int required
+option "groupingType" 	-
+	"type of grouping to use (default 0: HV lines)" int required
+option "binarize" 	-
+	"whether to binarize the thresholded image or use the raw values"
+	double required
+option "detectionThreshold" 	-
+	"threshold for line scores to declare as line" double required
+option "smoothScores" 	-
+	"whether to smooth scores of lines detected or not" int required
+
+option "rMin" 	-
+	"rMin for Hough transform (in pixels)" double required
+option "rMax" 	-
+	"rMax for Hough transform (in pixels)" double required
+option "rStep" 	-
+	"rStep for Hough transform (in pixels)" double required
+option "thetaMin" 	-
+	"thetaMin for Hough transform (in degrees)" double required
+option "thetaMax" 	-
+	"thetaMax for Hough transform (in degrees)" double required
+option "thetaStep" 	-
+	"thetaStep for Hough transform (in degrees)" double required
+
+option "ipmVpPortion" 	-
+	"Portion of IPM image height to add to y-coordinate of VP" double required
+
+option "getEndPoints" -
+	"Get the endpoints of the line" int required
+
+option "group" 	-
+	"group nearby lines or not (default 1: group)" int required
+
+option "groupThreshold" 	-
+	"Threshold for grouping nearby lines (default 10)" double required
+
+#RANSAC options
+option "ransac" -
+	"use RANSAC (1) or not (0)" int required
+
+option "ransacLineNumSamples" 	-
+	"Number of samples to use for RANSAC" int required
+option "ransacLineNumIterations" 	-
+	"Number of iterations to use for RANSAC" int required
+option "ransacLineNumGoodFit" 	-
+	"Number of close points to consider a good line fit" int required
+option "ransacLineThreshold" 	-
+	"Threshold to consider a point close" double required
+option "ransacLineScoreThreshold" -
+	"Threshold for detected line scores" double required
+option "ransacLineBinarize" -
+	"Whether to binarize image for RANSAC or not" int required
+option "ransacLineWindow" -
+	"Half width to use for ransac window" int required
+
+option "ransacSplineNumSamples" 	-
+	"Number of samples to use for RANSAC" int required
+option "ransacSplineNumIterations" 	-
+	"Number of iterations to use for RANSAC" int required
+option "ransacSplineNumGoodFit" 	-
+	"Number of close points to consider a good line fit" int required
+option "ransacSplineThreshold" 	-
+	"Threshold to consider a point close" double required
+option "ransacSplineScoreThreshold" -
+	"Threshold for detected line scores" double required
+option "ransacSplineBinarize" -
+	"Whether to binarize image for RANSAC or not" int required
+option "ransacSplineWindow" -
+	"Half width to use for ransac window" int required
+
+option "ransacSplineDegree" -
+	"Degree of spline to use" int required
+option "ransacSpline" -
+	"Whether to use splines" int required
+option "ransacLine" -
+	"Whether to use lines" int required
+
+option "ransacSplineStep" -
+	"Step to use when pixelzing spline in ransac" float required
+
+
+option "overlapThreshold" -
+	"Overlap threshold to use for grouping of bounding boxes" float required
+
+
+option "localizeAngleThreshold" -
+	"Angle threshold used for localization (cosine, 1: most restrictive, 0: most liberal)" float required
+option "localizeNumLinePixels" -
+	"Number of pixels to go in normal direction for localization" int required
+
+
+option "extendAngleThreshold" -
+	"Angle threshold used for extending (cosine, 1: most restrictive, 0: most liberal)" float required
+option "extendMeanDirAngleThreshold" -
+	"Angle threshold from mean direction used for extending (cosine, 1: most restrictive, 0: most liberal)" float required
+option "extendLinePixelsTangent" -
+	"Number of pixels to go in tangent direction for extending" int required
+option "extendLinePixelsNormal" -
+	"Number of pixels to go in tangent direction for extending" int required
+option "extendContThreshold" -
+	"Threhsold used for stopping the extending process (higher -> less extending)" float required
+option "extendDeviationThreshold" -
+	"Stop extending when number of deviating points exceeds this threshold" int required
+option "extendRectTop" -
+	"Top point for extension bounding box" int required
+option "extendRectBottom" -
+	"Bottom point for extension bounding box" int required
+
+option "extendIPMAngleThreshold" -
+	"Angle threshold used for extending (cosine, 1: most restrictive, 0: most liberal)" float required
+option "extendIPMMeanDirAngleThreshold" -
+	"Angle threshold from mean direction used for extending (cosine, 1: most restrictive, 0: most liberal)" float required
+option "extendIPMLinePixelsTangent" -
+	"Number of pixels to go in tangent direction for extending" int required
+option "extendIPMLinePixelsNormal" -
+	"Number of pixels to go in tangent direction for extending" int required
+option "extendIPMContThreshold" -
+	"Threhsold used for stopping the extending process (higher -> less extending)" float required
+option "extendIPMDeviationThreshold" -
+	"Stop extending when number of deviating points exceeds this threshold" int required
+option "extendIPMRectTop" -
+	"Top point for extension bounding box" int required
+option "extendIPMRectBottom" -
+	"Bottom point for extension bounding box" int required
+
+
+option "splineScoreJitter" -
+	"Number of pixels to go around the spline to compute score" int required
+option "splineScoreLengthRatio" -
+	"Ratio of spline length to use" float required
+option "splineScoreAngleRatio" -
+	"Ratio of spline angle to use" float required
+option "splineScoreStep" -
+	"Step to use for spline score computation" float required
+
+
+option "splineTrackingNumAbsentFrames" -
+	"number of frames the track is allowed to be absent before deleting it" int required
+option "splineTrackingNumSeenFrames" -
+	"number of frames before considering the track good" int required
+
+option "mergeSplineThetaThreshold" -
+	"Angle threshold for merging splines (radians)" float required
+option "mergeSplineRThreshold" -
+	"R threshold (distance from origin) for merginn splines" float required
+option "mergeSplineMeanThetaThreshold" -
+	"Mean Angle threshold for merging splines (radians)" float required
+option "mergeSplineMeanRThreshold" -
+	"Mean R threshold (distance from origin) for merginn splines" float required
+option "mergeSplineCentroidThreshold" -
+	"Distance threshold between spline cetroids for merging" float required
+
+option "lineTrackingNumAbsentFrames" -
+	"number of frames the track is allowed to be absent before deleting it" int required
+option "lineTrackingNumSeenFrames" -
+	"number of frames before considering the track good" int required
+
+option "mergeLineThetaThreshold" -
+	"Angle threshold for merging lines (radians)" float required
+option "mergeLineRThreshold" -
+	"R threshold (distance from origin) for merging lines" float required
+
+option "numStrips"  	-
+	"Number of horizontal strips to divide the image to" int required
+
+option "checkSplines" -
+	"Whtethet to check splines or not" int required
+option "checkSplinesCurvenessThreshold" -
+	"Curveness Threshold for checking splines" float required
+option "checkSplinesLengthThreshold" -
+	"Length Threshold for checking splines" float required
+option "checkSplinesThetaDiffThreshold" -
+	 "ThetaDiff Threshold for checking splines" float required
+option "checkSplinesThetaThreshold" -
+	"ThetaThreshold Threshold for checking splines" float required
+
+option "checkIPMSplines" -
+	"Whtethet to check IPM splines or not" int required
+option "checkIPMSplinesCurvenessThreshold" -
+	"Curveness Threshold for checking splines" float required
+option "checkIPMSplinesLengthThreshold" -
+	"Length Threshold for checking splines" float required
+option "checkIPMSplinesThetaDiffThreshold" -
+	 "ThetaDiff Threshold for checking splines" float required
+option "checkIPMSplinesThetaThreshold" -
+	"ThetaThreshold Threshold for checking splines" float required
+
+option "finalSplineScoreThreshold" -
+	"Final Threshold for declaring a valid spline" float required
+
+option "useGroundPlane" -
+	"Use groudn plane or not when sending to map" int required
+
+option "checkColor" -
+	"Whether to check colors or not" int required
+option "checkColorWindow" -
+	"Size of window to use" int required
+option "checkColorNumBins" -
+	"Number of bins to use" int required
+option "checkColorNumYellowMin" -
+	"Min ratio of yellow points" float required
+option "checkColorRGMin" -
+	"Min RG diff" float required
+option "checkColorRGMax" -
+	"Max RG diff" float required
+option "checkColorGBMin" -
+	"Min GB diff" float required
+option "checkColorRBMin" -
+	"Min RB diff" float required
+option "checkColorRBFThreshold" -
+	"RBF Threshold" float required
+option "checkColorRBF" -
+	"Whether to use RBF or not" int required
+
+option "ipmWindowClear" -
+	"Whether to clear part of the IPM image" int required
+option "ipmWindowLeft" -
+	"Left corrdinate of window to keep in IPM" int required
+option "ipmWindowRight" -
+	"Left corrdinate of window to keep in IPM" int required
+
+option "checkLaneWidth" -
+	"Whether to check lane width or not" int required
+option "checkLaneWidthMean" -
+	"Mean of lane width to look for" float required
+option "checkLaneWidthStd" -
+	"Std deviation of lane width to look for" float required
+
+
+
+
+

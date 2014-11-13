@@ -1,0 +1,68 @@
+
+# Command-line options (use gengetopt to generate C the source code)
+
+package "LinePerceptor"
+purpose "Detects lanes in street images."
+version "1.0"
+
+#-------------------------------------------------------------------------
+section "Basic options"
+#-------------------------------------------------------------------------
+
+option "lanes-conf" -
+  "Configuration file for lane detection"  string  default ="Lanes.conf"
+  optional
+
+option "stoplines-conf" -
+  "Configuration file for stopline detection"  string default="StopLines.conf"
+  optional
+
+option "no-stoplines" -
+  "Don't detect stop lines" flag on
+
+option "no-lanes" -
+  "Don't detect lanes" flag off
+
+option "camera-conf" -
+  "Configuration file for the camera paramters" string
+  default="CameraInfo.conf" optional
+
+option "list-file" -
+  "Text file containing a list of images one per line" string optional
+
+option "list-path" -
+  "Path where the image files are located, this is just appended at the front of each line in --list-file"
+  default="" string optional
+
+option "image-file" -
+  "The path to an image" string optional
+
+
+#-------------------------------------------------------------------------
+section "Debugging options"
+#-------------------------------------------------------------------------
+
+option "wait" - "Number of milliseconds to show the detected lanes. Put 0 for infinite i.e. waits for keypress." int
+  default="0" optional
+
+option "show" -
+  "Show the detected lines" flag off
+
+option "step" -
+  "Step through each image (needs a keypress) or fall through (waits for --wait msecs)" flag off
+
+option "show-lane-numbers" -
+  "Show the lane numbers on the output image" flag off
+
+option "output-suffix" -
+  "Suffix of images and results" string default="_results" optional
+
+option "save-images" -
+  "Export all images with detected lanes to the by appending --output-suffix + '.png' to each input image"
+  flag off
+
+option "save-lanes" -
+  "Export all detected lanes to a text file by appending --output-suffix + '.txt' to --list-file" flag off
+
+option "debug" -
+  "Show debugging information and images" flag off
