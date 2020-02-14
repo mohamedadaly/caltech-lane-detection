@@ -17,8 +17,8 @@
 #include <iomanip>
 #include <ctime>
 
-#include <cv.h>
-#include <highgui.h>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
 
 // Useful message macro
 #define MSG(fmt, ...) \
@@ -81,18 +81,18 @@ void ProcessImage(const char* filename, CameraInfo& cameraInfo,
                   int index, clock_t *elapsedTime)
 {
   // load the image
-  CvMat *raw_mat, *mat;
-  mcvLoadImage(filename, &raw_mat, &mat);
+  cv::Mat *raw_mat = new cv::Mat(), *mat = new cv::Mat();
+  mcvLoadImage(filename, raw_mat, mat);
 
   // detect lanes
-  vector<FLOAT> lineScores, splineScores;
+  vector<LD_FLOAT> lineScores, splineScores;
   vector<Line> lanes;
   vector<Spline> splines;
   clock_t startTime = clock();
   mcvGetLanes(mat, raw_mat, &lanes, &lineScores, &splines, &splineScores,
               &cameraInfo, &lanesConf, NULL);
   clock_t endTime = clock();
-  MSG("Found %d lanes in %f msec", splines.size(),
+  MSG("Found %d lanes in %f msec", (int)splines.size(),
       static_cast<double>(endTime - startTime) / CLOCKS_PER_SEC * 1000.);
   // update elapsed time
   if (elapsedTime)
@@ -119,9 +119,10 @@ void ProcessImage(const char* filename, CameraInfo& cameraInfo,
   if (options.show_flag || options.save_images_flag)
   {
     // show detected lanes
-    CvMat *imDisplay = cvCloneMat(raw_mat);
+    cv::Mat *imDisplay  = new cv::Mat();
+    *imDisplay  = raw_mat->clone();
     // convert to BGR
-//     cvCvtColor(raw_mat, imDisplay, CV_RGB2BGR);
+//     cvcv::tColor(raw_mat, imDisplay, CV_RGB2BGR);
     if (lanesConf.ransacLine && !lanesConf.ransacSpline)
       for(int i=0; i<lanes.size(); i++)
         mcvDrawLine(imDisplay, lanes[i], CV_RGB(0,125,0), 3);
@@ -140,7 +141,7 @@ void ProcessImage(const char* filename, CameraInfo& cameraInfo,
           char str[256];
           sprintf(str, "%d", i);
           mcvDrawText(imDisplay, str,
-                      cvPointFrom32f(splines[i].points[splines[i].degree]),
+                      cv::Point(splines[i].points[splines[i].degree]),
                                       1, CV_RGB(0, 0, 255));
         }
       }
@@ -163,14 +164,14 @@ void ProcessImage(const char* filename, CameraInfo& cameraInfo,
       string outFilename = ss.str();
       // save the image file
       MSG("Writing output image: %s", outFilename.c_str());
-      cvSaveImage(outFilename.c_str(), imDisplay);
+      cv::imwrite(outFilename, *imDisplay);
     }
     // clear
-    cvReleaseMat(&imDisplay);
+    delete imDisplay;
   }
 
-  cvReleaseMat(&raw_mat);
-  cvReleaseMat(&mat);
+  delete raw_mat;
+  delete mat;
 }
 
 

@@ -6,9 +6,9 @@
 # Date: 10/7/2010
 
 OCVFLAGS = `pkg-config --cflags opencv`
-OCVLIBS = `pkg-config --libs opencv` -lstdc++
+OCVLIBS = `pkg-config --libs opencv`
 
-CPP = g++
+CPP = g++-7
 
 # type of system?
 LBITS = $(shell getconf LONG_BIT)
@@ -26,6 +26,7 @@ OBJECTS += CameraInfoOpt.o LaneDetectorOpt.o cmdline.o \
 	LaneDetector.o InversePerspectiveMapping.o mcv.o \
 	main.o
 CFLAGS += $(OCVFLAGS)
+CFLAGS += -std=c++17 -lstdc++
 LIBS += $(OCVLIBS)
 BINARY = LaneDetector$(SFX)
 
