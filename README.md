@@ -101,8 +101,7 @@ To view the statistics of the results, open Matlab and run the file:
 
 ```bash
 cd ~/lane-detector/matlab/
-matlab&
->>Stats
+matlab -nodisplay -nosplash -nodesktop -r "Stats; exit;"
 ```
 
 ## Command line options
