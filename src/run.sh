@@ -4,6 +4,8 @@
 # Author: Mohamed Aly <malaa@caltech.edu>
 # Date: 10/7/2010
 
+set -x
+
 #clips to run
 path="../clips"
 clips="cordova1 cordova2 washington1 washington2"
