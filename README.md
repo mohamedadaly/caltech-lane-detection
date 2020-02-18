@@ -60,8 +60,10 @@ matlab/: contains the Matlab source files
 
 ## Prerequisites
 
-1. OpenCV 3.4 or higher https://opencv.org/
-2. (Optional) Gengetopt http://www.gnu.org/software/gengetopt/
+1. [OpenCV 3.x or 4.x](https://opencv.org/)
+2. [Gengetopt](http://www.gnu.org/software/gengetopt/)
+
+On Ubuntu use `sudo apt install gengetopt libopencv-dev` to install both.
 
 ## Compiling
 

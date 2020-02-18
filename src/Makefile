@@ -25,45 +25,47 @@ SRCS    += CameraInfoOpt.c LaneDetectorOpt.c cmdline.c LaneDetector.cc \
 OBJECTS += CameraInfoOpt.o LaneDetectorOpt.o cmdline.o \
 	LaneDetector.o InversePerspectiveMapping.o mcv.o \
 	main.o
-CFLAGS += $(OCVFLAGS)
-CFLAGS += -std=c++17 -lstdc++
-LIBS += $(OCVLIBS)
+CXXFLAGS += -std=c++17
+INCLUDES += $(OCVFLAGS)
+LIBS += $(OCVLIBS) -lstdc++
 BINARY = LaneDetector$(SFX)
 
 all: release
 
 release: $(OBJECTS)
-	$(CPP) $^ $(LDFLAGS) $(LIBS) $(CFLAGS) -O3 -o $(BINARY)
+	$(CPP) $^ $(LDFLAGS) $(LIBS) $(CXXFLAGS) -O3 -o $(BINARY)
 
 debug: $(OBJECTS)
-	$(CPP) $^ $(LDFLAGS) $(LIBS) $(CFLAGS) -g -O0 -o $(BINARY)
+	$(CPP) $^ $(LDFLAGS) $(LIBS) $(CXXFLAGS) -g -O0 -o $(BINARY)
 
 # Generate getopts header
-LaneDetectorOpt.h: LaneDetectorOpt.ggo
+LaneDetectorOpt.c: LaneDetectorOpt.ggo
 	gengetopt -i LaneDetectorOpt.ggo --conf-parser -F LaneDetectorOpt \
 	  --func-name=LaneDetectorParser --arg-struct-name=LaneDetectorParserInfo
 
 #get opts for cameraInfo and stopLinePerceptor
-cameraInfoOpt.h: cameraInfoOpt.ggo
-	gengetopt -i cameraInfoOpt.ggo -F cameraInfoOpt \
+CameraInfoOpt.c: CameraInfoOpt.ggo
+	gengetopt -i CameraInfoOpt.ggo -F CameraInfoOpt \
 	  --func-name=cameraInfoParser \
 	  --arg-struct-name=CameraInfoParserInfo \
 	  --conf-parser
 
-cmdline.h: cmdline.ggo
+cmdline.c: cmdline.ggo
 	gengetopt -i cmdline.ggo -u --conf-parser
 
 clean:
 	rm -f *.a $(OBJECTS) $(BINARY)
+	rm -f CameraInfoOpt.c LaneDetectorOpt.c cmdline.c
+	rm -f CameraInfoOpt.h LaneDetectorOpt.h cmdline.h
 
 .cc.o:
-	g++ $< $(CFLAGS) $(LIBS) $(LDFLAGS) -c -o $@
+	$(CPP) $< $(LDFLAGS) $(INCLUDES) $(CXXFLAGS) -c -o $@
 
 # headers and sources
 .hh.cc:
 .h.c:
 
 # generating gengetopt headers
-cmdline.o: cmdline.h
-CameraInfoOpt.o: CameraInfoOpt.h
-LaneDetectorOpt.o: LaneDetectorOpt.h
+cmdline.o: cmdline.c
+CameraInfoOpt.o: CameraInfoOpt.c
+LaneDetectorOpt.o: LaneDetectorOpt.c
