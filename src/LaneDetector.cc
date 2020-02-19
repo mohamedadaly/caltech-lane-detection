@@ -338,7 +338,7 @@ void mcvGetHVLines(const cv::Mat *inImage, vector <Line> *lines,
 
     //plot the line scores and the local maxima
     //if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
-//     gnuplot_ctrl *h =  mcvPlotMat1D(NULL, &sumLines, "Line Scores");
+//     gnuplot_ctrl *h =  mcvPlotMat1D(nullptr, &sumLines, "Line Scores");
 //     cv::Mat *y = mcvVector2Mat(sumLinesMax);
 //     cv::Mat *x =  mcvVector2Mat(sumLinesMaxLoc);
 //     mcvPlotMat2D(h, x, y);
@@ -1488,7 +1488,7 @@ void mcvGetStopLines(const cv::Mat *inImage, vector<Line> *stopLines,
  * \param cameraInfo the camera parameters
  * \param stopLineConf parameters for stop line detection
  * \param state returns the current state and inputs the previous state to
- *   initialize the current detection (NULL to ignore)
+ *   initialize the current detection (nullptr to ignore)
  *
  *
  */
@@ -3087,7 +3087,7 @@ void mcvGetLineExtent(const cv::Mat *im, const Line &inLine, Line &outLine)
       startLoc = startLocs[c-1];
 
     //convolve with falling step to get end point
-    //cv::flip(&step, NULL, 1);
+    //cv::flip(&step, nullptr, 1);
     //convolve
     //cv::filter2D(*pix, *fstep, -1, step);
     //get local max
@@ -3639,7 +3639,7 @@ cv::Mat* mcvGetNonZeroPoints(const cv::Mat *inMat, bool floatMat)
       outMat = new cv::Mat(3, numnz, CV_32SC1);
   }
   else
-    return NULL;
+    return nullptr;
 
   //check type
   if (CV_MAT_TYPE(inMat->type())==FLOAT_MAT_TYPE &&
@@ -4388,10 +4388,10 @@ Spline mcvFitBezierSpline(cv::Mat *points, int degree)
   //     SHOW_MAT(sp, "Spline points:");
 
   //put back into spline
-  memcpy((float *)spline.points, ((float*)sp->data), sizeof(float)*(spline.degree+1)*2);
-//  for (int i = 0; i < spline.degree+1; i++) {
-//      spline.points[i] = cv::Point2f(sp->at<float>(i, 0), sp->at<float>(i, 1));
-//  }
+//  memcpy((float *)spline.points, ((float*)sp->data), sizeof(float)*(spline.degree+1)*2);
+  for (int i = 0; i < spline.degree+1; i++) {
+      spline.points[i] = cv::Point2f(sp->at<float>(i, 0), sp->at<float>(i, 1));
+  }
   //     if(spline.points[0].x<0)
   // 	SHOW_MAT(points, "INput Points");
 
@@ -4433,11 +4433,12 @@ cv::Mat* mcvEvalBezierSpline(const Spline &spline, float h, cv::Mat *tangents)
 
   //spline points
   cv::Mat *sp = new cv::Mat(spline.degree+1, 2, CV_32FC1);
-  memcpy(((float*)sp->data), (float *)spline.points,
-         sizeof(float)*(spline.degree+1)*2);
-//  for (int i = 0; i < spline.degree+1; i++) {
-//      sp->row(i) = cv::Mat(spline.points[i]).clone();
-//  }
+//  memcpy(((float*)sp->data), (float *)spline.points,
+//         sizeof(float)*(spline.degree+1)*2);
+  for (int i = 0; i < spline.degree+1; i++) {
+      sp->at<float>(i, 0) = spline.points[i].x;
+      sp->at<float>(i, 1) = spline.points[i].y;
+  }
 
   //abcd
   cv::Mat *abcd;
@@ -4583,18 +4584,18 @@ cv::Mat* mcvEvalBezierSpline(const Spline &spline, float h, cv::Mat *tangents)
  * \param box the bounding box
  * \param extendSpline whether to extend spline with straight lines or
  *          not (default false)
- * \return computed points in an array Nx2 [x,y], returns NULL if empty output
+ * \return computed points in an array Nx2 [x,y], returns nullptr if empty output
  */
 cv::Mat* mcvGetBezierSplinePixels(Spline &spline, float h, cv::Size box,
                                 bool extendSpline)
 {
   //get the points belonging to the spline
   cv::Mat *tangents = new cv::Mat(2, 2, CV_32FC1);
-  cv::Mat * points = mcvEvalBezierSpline(spline, h, tangents);
+  cv::Mat *points = mcvEvalBezierSpline(spline, h, tangents);
 
   //pixelize the spline
   //cv::Mat *inpoints = new cv::Mat(points->rows, 1, CV_8SC1);
-  //cv::set(, cv::Scalar value, const cv::Arr* mask=NULL);
+  //cv::set(, cv::Scalar value, const cv::Arr* mask=nullptr);
   list<int> inpoints;
   list<int>::iterator inpointsi;
   int lastin = -1, numin = 0;
@@ -4670,7 +4671,7 @@ cv::Mat* mcvGetBezierSplinePixels(Spline &spline, float h, cv::Size box,
     rpoints = new cv::Mat(numin, 2, CV_32SC1);
   else
   {
-    return NULL;
+    return nullptr;
   }
 
 
@@ -4678,11 +4679,9 @@ cv::Mat* mcvGetBezierSplinePixels(Spline &spline, float h, cv::Size box,
   if(extendSpline)
   {
     //copy
-    memcpy(rpoints->ptr(0, 0), ((float*)pixelst0->data),
-           sizeof(float)*2*pixelst0->rows);
-//    for (int i = 0; i < pixelst0->rows; i++) {
-//        rpoints->row(i) = pixelst0->row(i).clone();
-//    }
+//    memcpy(rpoints->ptr(0, 0), ((float*)pixelst0->data),
+//           sizeof(float)*2*pixelst0->rows);
+    pixelst0->copyTo(rpoints->rowRange(0, pixelst0->rows));
   }
 
   //put spline pixels
@@ -4698,11 +4697,10 @@ cv::Mat* mcvGetBezierSplinePixels(Spline &spline, float h, cv::Size box,
   if(extendSpline)
   {
     //copy
-    memcpy(rpoints->ptr(ri, 0), ((float*)pixelst1->data),
-           sizeof(float)*2*pixelst1->rows);
-//    for (int i = 0; i < pixelst1->rows; i++) {
-//        rpoints->row(i + ri) = pixelst1->row(i).clone();
-//    }
+//    memcpy(rpoints->ptr(ri, 0), ((float*)pixelst1->data),
+//           sizeof(float)*2*pixelst1->rows);
+    pixelst1->copyTo(rpoints->rowRange(ri, ri + pixelst1->rows));
+
     //clear
     delete pixelst0;
     delete pixelst1;
@@ -4972,7 +4970,7 @@ void mcvGetRansacSplines(const cv::Mat *im, vector<Line> &lines,
  * \param splineScoreStep Step to use for spline score computation
  * \param prevSplines the splines from the previous frame, to use as initial
  *          seeds
- *   pass NULL to ignore this input
+ *   pass nullptr to ignore this input
  *
  */
 void mcvFitRansacSpline(const cv::Mat *image, int numSamples, int numIterations,
@@ -5023,7 +5021,7 @@ void mcvFitRansacSpline(const cv::Mat *image, int numSamples, int numIterations,
 
   //iterator for previous splines
   vector<Spline>::iterator prevSpline;
-  bool randSpline = prevSplines==NULL || prevSplines->size()==0;
+  bool randSpline = prevSplines==nullptr || prevSplines->size()==0;
   if (!randSpline) prevSpline = prevSplines->begin();
 
   //fprintf(stderr, "spline degree=%d\n", prevSpline->degree);
@@ -5146,7 +5144,7 @@ void mcvFitRansacSpline(const cv::Mat *image, int numSamples, int numIterations,
  * \param spline color
  *
  */
-void mcvDrawSpline(cv::Mat *image, Spline spline, cv::Scalar color, int cols)
+void mcvDrawSpline(cv::Mat *image, Spline spline, cv::Scalar color, int width)
 {
   //get spline pixels
   cv::Mat *pixels = mcvGetBezierSplinePixels(spline, .05,
@@ -5162,11 +5160,12 @@ void mcvDrawSpline(cv::Mat *image, Spline spline, cv::Scalar color, int cols)
     // 		(int)pixels->at<float>(i, 1),
     // 		(int)pixels->at<float>(i, 0),
     // 		color);
-    cv::line(*image, cv::Point((int)pixels->at<float>(i, 0),
-                          (int)pixels->at<float>(i, 1)),
-           cv::Point((int)pixels->at<float>(i+1, 0),
-                               (int)pixels->at<float>(i+1, 1)),
-           color, cols);
+    cv::line(*image,
+             cv::Point(pixels->at<int32_t>(i, 0),
+                       pixels->at<int32_t>(i, 1)),
+             cv::Point(pixels->at<int32_t>(i+1, 0),
+                       pixels->at<int32_t>(i+1, 1)),
+             color, width, cv::LINE_AA);
 
   //put the control points with circles
   for (int i=0; i<spline.degree+1; i++)
@@ -5185,12 +5184,12 @@ void mcvDrawSpline(cv::Mat *image, Spline spline, cv::Scalar color, int cols)
  * \param cols the rectangle cols
  *
  */
-void mcvDrawRectangle (cv::Mat *image, cv::Rect rect, cv::Scalar color, int cols)
+void mcvDrawRectangle (cv::Mat *image, cv::Rect rect, cv::Scalar color, int width)
 {
   //draw the rectangle
   cv::rectangle(*image, cv::Point(rect.x, rect.y),
               cv::Point(rect.x + rect.width-1, rect.y + rect.height-1),
-              color, cols);
+              color, width);
 
 }
 
@@ -6036,12 +6035,10 @@ cv::Mat*  mcvExtendPoints(const cv::Mat *im, const cv::Mat *inPoints,
   }
 
   //then put the original points
-  i = numBack;
-  memcpy(extendedPoints->ptr(i, 0), ((float*)inPoints->data),
-         sizeof(float)*2*inPoints->rows);
-//    for (int j = 0; j < inPoints->rows; j++) {
-//        extendedPoints->row(i + j) = inPoints->row(i).clone();
-//    }
+//  i = numBack;
+//  memcpy(extendedPoints->ptr(i, 0), ((float*)inPoints->data),
+//         sizeof(float)*2*inPoints->rows);
+  inPoints->copyTo(extendedPoints->rowRange(numBack, numBack + inPoints->rows));
 
   //then put the front points in normal order
   for (i = numBack+inPoints->rows, pointi=frontPoints.begin();
