@@ -273,7 +273,7 @@ void mcvGetHVLines(const cv::Mat *inImage, vector <Line> *lines,
   int smoothWidth = 21; //21; 51;
   cv::Mat smooth = cv::Mat(1, smoothWidth, CV_32FC1, smoothp);
   if (smoothScores)
-    cv::filter2D(*&sumLines, *&sumLines, -1, smooth);
+    cv::filter2D(sumLines, sumLines, -1, smooth);
 //     SHOW_MAT(&sumLines, "sumLines:");
 
 
@@ -1649,7 +1649,7 @@ void mcvGetLanes(const cv::Mat *inImage, const cv::Mat* clrImage,
   //fipm was here
   //make copy of filteed ipm image
 
-  vector <Line> dbIpmStopLines;
+  vector<Line> dbIpmStopLines;
   vector<Spline> dbIpmSplines;
 
   //int numStrips = 2;
@@ -3071,7 +3071,7 @@ void mcvGetLineExtent(const cv::Mat *im, const Line &inLine, Line &outLine)
     //smooth
     //	  FLOAT_MAT_ELEM_TYPE smoothp[] = {.25, .5, .25};
     //cv::Mat smooth = cv::Mat(1, 3, FLOAT_MAT_TYPE, smoothp);
-    //cv::filter2D(*&step, *&step, -1, smooth);
+    //cv::filter2D(step, step, -1, smooth);
     //SHOW_MAT(&step,"smoothed step");
     //convolve
     cv::filter2D(*pix, *rstep, -1, step);
@@ -6244,16 +6244,7 @@ float mcvGetLinePeak(const cv::Mat *im, const Line &line,
  */
 cv::Point2f mcvNormalizeVector(const cv::Point2f &v)
 {
-  //return vector
-  cv::Point2f ret = v;
-
-  //normalize vector
-  float ssq = 1./cv::sqrt(ret.x*ret.x + ret.y*ret.y);
-  ret.x *= ssq;
-  ret.y *= ssq;
-
-  //return
-  return ret;
+  return v / cv::norm(v);
 }
 
 
@@ -6288,10 +6279,8 @@ cv::Point2f mcvNormalizeVector(float x, float y)
  */
 cv::Point2f mcvAddVector(cv::Point2f v1, cv::Point2f v2)
 {
-  //get sum
-  cv::Point2f sum = cv::Point(v1.x + v2.x, v1.y + v2.y);
   //return vector
-  return sum;
+  return v1 + v2;
 }
 
 
@@ -6303,12 +6292,7 @@ cv::Point2f mcvAddVector(cv::Point2f v1, cv::Point2f v2)
  */
 cv::Point2f mcvMultiplyVector(cv::Point2f v, float s)
 {
-  //get sum
-  cv::Point2f prod;
-  prod.x = v.x * s;
-  prod.y = v.y * s;
-  //return vector
-  return prod;
+  return v * s;
 }
 
 /** This functions computes the score of the given spline from the
@@ -6562,11 +6546,8 @@ bool mcvCheckMergeSplines(const Spline& sp1, const Spline& sp2,
   bool rNotOk = rDist >= 100;
   bool thetaNotOk = thetaDist >= .8;
 
-  bool merge = false;
-  //((thetaOk || meanThetaOk) && centroidOk) ||
-  if ((thetaOk || meanThetaOk) &&	(rOk || meanROk || centroidOk) &&
-    !rNotOk && !centroidNotOk && !thetaNotOk)
-    merge = true;
+  bool merge = ((thetaOk || meanThetaOk) &&	(rOk || meanROk || centroidOk) &&
+                !rNotOk && !centroidNotOk && !thetaNotOk);
 
 
   //debug
@@ -6620,22 +6601,21 @@ void mcvGetPointsFeatures(const cv::Mat* points, cv::Point2f* centroid,
 {
 
   //get start and end point
-  cv::Point2f start = cv::Point(points->at<float>(0, 0),
-                                    points->at<float>(0, 1));
-  cv::Point2f end = cv::Point(points->at<float>(points->rows-1, 0),
-                                  points->at<float>(points->rows-1, 1));
+    cv::Point2f start = cv::Point(points->at<float>(0, 0),
+                                  points->at<float>(0, 1));
+    cv::Point2f end = cv::Point(points->at<float>(points->rows-1, 0),
+                                points->at<float>(points->rows-1, 1));
   //compute centroid
   if (centroid)
   {
     //get sum of control points
     *centroid = cv::Point(0, 0);
     for (int i=0; i<=points->rows; ++i)
-	    *centroid = mcvAddVector(*centroid,
-                               cv::Point(points->at<float>(i, 0),
-                                            points->at<float>(i, 1)));
+        *centroid = mcvAddVector(*centroid,
+                                 cv::Point(points->at<float>(i, 0),
+                                           points->at<float>(i, 1)));
     //take mean
-    *centroid = cv::Point(centroid->x / (points->rows),
-                             centroid->y / (points->rows));
+    *centroid /= points->rows;
     }
 
   //compute theta
@@ -6650,7 +6630,7 @@ void mcvGetPointsFeatures(const cv::Mat* points, cv::Point2f* centroid,
     mcvLineXY2RTheta(line, *r, *theta);
     //add pi if negative
     if (*theta<0)
-      *theta  += CV_PI;
+      *theta += CV_PI;
   }
 
   //mean theta
@@ -6665,9 +6645,9 @@ void mcvGetPointsFeatures(const cv::Mat* points, cv::Point2f* centroid,
       //get the line
       Line line;
       line.startPoint = cv::Point(points->at<float>(i, 0),
-                                      points->at<float>(i, 1));
+                                  points->at<float>(i, 1));
       line.endPoint = cv::Point(points->at<float>(i+1, 0),
-                                    points->at<float>(i+1, 1));
+                                points->at<float>(i+1, 1));
       //get theta and r
       float r, t;
       mcvLineXY2RTheta(line, r, t);
@@ -6690,7 +6670,7 @@ void mcvGetPointsFeatures(const cv::Mat* points, cv::Point2f* centroid,
     cv::Point2f v = mcvSubtractVector(start, end);
 
     //compute length
-    *length = cv::sqrt(v.x * v.x + v.y * v.y);
+    *length = cv::norm(v);
   }
 
   //compute curveness
@@ -6756,8 +6736,7 @@ void mcvGetSplineFeatures(const Spline& spline, cv::Point2f* centroid,
     for (int i=0; i<=spline.degree; ++i)
       *centroid = mcvAddVector(*centroid, spline.points[i]);
     //take mean
-    *centroid = cv::Point(centroid->x / (spline.degree+1),
-                             centroid->y / (spline.degree+1));
+    *centroid /= spline.degree + 1;
   }
 
   //compute theta
@@ -6822,7 +6801,7 @@ void mcvGetSplineFeatures(const Spline& spline, cv::Point2f* centroid,
                                   spline.points[0].y -
                                   spline.points[spline.degree].y);
     //compute length
-    *length = cv::sqrt(v.x * v.x + v.y * v.y);
+    *length = cv::norm(v);
   }
 
   //compute curveness
@@ -6858,7 +6837,7 @@ void mcvGetSplineFeatures(const Spline& spline, cv::Point2f* centroid,
  */
 cv::Point2f  mcvSubtractVector(const cv::Point2f& v1, const cv::Point2f& v2)
 {
-  return cv::Point(v1.x - v2.x, v1.y - v2.y);
+  return v1 - v2;
 }
 
 /** This functions computes the vector norm
@@ -6904,8 +6883,7 @@ bool mcvCheckMergeLines(const Line& line1, const Line& line2,
   bool rOk = rDist <= rThreshold;
   bool thetaOk = thetaDist <= thetaThreshold;
 
-  bool merge = false;
-  if (rOk && thetaOk) merge = true;
+  bool merge = rOk && thetaOk;
 
   //debug
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
@@ -6954,10 +6932,8 @@ Spline mcvLineXY2Spline(const Line& line, int degree)
   for (int j=1; j<degree; ++j)
   {
     //get point
-    cv::Point2f point;
     float t = j / (float)degree;
-    point.x = line.startPoint.x + t * dir.x;
-    point.y = line.startPoint.y + t * dir.y;
+    cv::Point2f point = line.startPoint + t * dir;
     //put it
     spline.points[j] = point;
   }
@@ -7047,11 +7023,9 @@ LineColor mcvGetPointsColor(const cv::Mat* im, const cv::Mat* points,
 
     //get the window indices
     int xmin = MAX(cvRound(points->at<float>(i, 0)-window), 0);
-    int xmax = MIN(cvRound(points->at<float>(i, 0)+window),
-                   im->cols);
+    int xmax = MIN(cvRound(points->at<float>(i, 0)+window), im->cols);
     int ymin = MAX(cvRound(points->at<float>(i, 1)-window), 0);
-    int ymax = MIN(cvRound(points->at<float>(i, 1)+window),
-                   im->rows);
+    int ymax = MIN(cvRound(points->at<float>(i, 1)+window), im->rows);
 
     //get mean for every channel
     float r=0.f, g=0.f, b=0.f, rr, gg, bb;
