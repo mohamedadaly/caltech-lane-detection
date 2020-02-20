@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <vector>
 
-#include <cv.h>
+#include <opencv2/core.hpp>
 
 using namespace std;
 
@@ -21,7 +21,7 @@ namespace LaneDetector
 #define FLOAT_MAT_TYPE CV_32FC1
 #define FLOAT_MAT_ELEM_TYPE float
 
-#define INT_MAT_TYPE CV_8UC1
+#define INT_MAT_TYPE CV_8UC3
 #define INT_MAT_ELEM_TYPE unsigned char
 
 #define FLOAT_IMAGE_TYPE IPL_DEPTH_32F
@@ -30,24 +30,24 @@ namespace LaneDetector
 #define INT_IMAGE_TYPE IPL_DEPTH_8U
 #define INT_IMAGE_ELEM_TYPE unsigned char
 
-#define FLOAT_POINT2D CvPoint2D32f
-#define FLOAT_POINT2D_F cvPoint2D632f
+#define FLOAT_POINT2D cv::Point2f
+#define FLOAT_POINT2D_F cv::Point2d
 
-#define FLOAT float
-#define INT int
-#define SHORT_INT unsigned char
+#define LD_FLOAT float
+#define LD_INT int
+#define LD_SHORT_INT unsigned char
 
 //some helper functions for debugging
-void SHOW_MAT(const CvMat *pmat, char str[]="Matrix");
+void SHOW_MAT(const cv::Mat *pmat, const char str[]="Matrix");
 
-void SHOT_MAT_TYPE(const CvMat *pmat);
+void SHOT_MAT_TYPE(const cv::Mat *pmat);
 
-void SHOW_IMAGE(const CvMat *pmat, const char str[]="Window", int wait=0);
-void SHOW_IMAGE(const IplImage *pmat, char str[]="Window");
+void SHOW_IMAGE(const cv::Mat *pmat, const char str[]="Window", int wait=0);
+void SHOW_IMAGE(const cv::Mat *pmat, const char str[]="Window");
 
-void SHOW_POINT(const FLOAT_POINT2D pt, char str[]="Point:");
+void SHOW_POINT(const FLOAT_POINT2D pt, const char str[]="Point:");
 
-void SHOW_RECT(const CvRect rect, char str[]="Rect:");
+void SHOW_RECT(const cv::Rect rect, const char str[]="Rect:");
 
 /**
  * This function reads in an image from file and returns the original color
@@ -59,8 +59,7 @@ void SHOW_RECT(const CvRect rect, char str[]="Rect:");
  * \param clrImage the raw input image
  * \param channelImage the first channel
  */
-void mcvLoadImage(const char *filename, CvMat **clrImage, CvMat** channelImage);
-
+void mcvLoadImage(const char *filename, cv::Mat *clrImage, cv::Mat* channelImage);
 
 /**
  * This function scales the input image to have values 0->1
@@ -68,7 +67,7 @@ void mcvLoadImage(const char *filename, CvMat **clrImage, CvMat** channelImage);
  * \param inImage the input image
  * \param outImage hte output iamge
  */
-void mcvScaleMat(const CvMat *inImage, CvMat *outMat);
+void mcvScaleMat(const cv::Mat *inImage, cv::Mat *outMat);
 
 /**
  * This function creates a double matrix from an input vector
@@ -78,7 +77,7 @@ void mcvScaleMat(const CvMat *inImage, CvMat *outMat);
  *
  */
 template <class T>
-CvMat* mcvVector2Mat(const vector<T> &vec);
+cv::Mat* mcvVector2Mat(const vector<T> &vec);
 
 } // namespace LaneDetector
 

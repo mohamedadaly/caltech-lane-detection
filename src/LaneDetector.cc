@@ -5,6 +5,19 @@
  *
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#pragma GCC diagnostic ignored "-Wformat="
+#pragma GCC diagnostic ignored "-Wparentheses"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#ifdef __GNUC__
+#if __GNUC__ > 5
+#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+#endif
+#endif
+
 #include "LaneDetector.hh"
 
 #include "mcv.hh"
@@ -20,23 +33,22 @@
 
 using namespace std;
 
-#include <cv.h>
-#include <highgui.h>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 namespace LaneDetector
 {
-  // used for debugging
-  int DEBUG_LINES = 0;
 
 /**
  * This function filters the input image looking for horizontal
- * or vertical lines with specific width or height.
+ * or vertical lines with specific cols or rows.
  *
  * \param inImage the input image
  * \param outImage the output image in IPM
- * \param wx width of kernel window in x direction = 2*wx+1
+ * \param wx cols of kernel window in x direction = 2*wx+1
  * (default 2)
- * \param wy width of kernel window in y direction = 2*wy+1
+ * \param wy cols of kernel window in y direction = 2*wy+1
  * (default 2)
  * \param sigmax std deviation of kernel in x (default 1)
  * \param sigmay std deviation of kernel in y (default 1)
@@ -44,9 +56,9 @@ namespace LaneDetector
  *      LINE_HORIZONTAL (default)
  *      LINE_VERTICAL
  */
- void mcvFilterLines(const CvMat *inImage, CvMat *outImage,
-                     unsigned char wx, unsigned char wy, FLOAT sigmax,
-                     FLOAT sigmay, LineType lineType)
+ void mcvFilterLines(const cv::Mat *inImage, cv::Mat *outImage,
+                     unsigned char wx, unsigned char wy, LD_FLOAT sigmax,
+                     LD_FLOAT sigmay, LineType lineType)
 {
     //define the two kernels
     //this is for 7-pixels wide
@@ -54,8 +66,8 @@ namespace LaneDetector
 //     int derivLen = 35;
 //     FLOAT_MAT_ELEM_TYPE smoothp[] = {2.384186e-07, 5.245209e-06, 5.507469e-05, 3.671646e-04, 1.744032e-03, 6.278515e-03, 1.778913e-02, 4.066086e-02, 7.623911e-02, 1.185942e-01, 1.541724e-01, 1.681881e-01, 1.541724e-01, 1.185942e-01, 7.623911e-02, 4.066086e-02, 1.778913e-02, 6.278515e-03, 1.744032e-03, 3.671646e-04, 5.507469e-05, 5.245209e-06, 2.384186e-07};
 //     int smoothLen = 23;
-  CvMat fx;
-  CvMat fy;
+  cv::Mat fx;
+  cv::Mat fy;
   //create the convoultion kernel
   switch (lineType)
   {
@@ -67,8 +79,8 @@ namespace LaneDetector
       FLOAT_MAT_ELEM_TYPE smoothp[] = {2.384186e-07, 5.245209e-06, 5.507469e-05, 3.671646e-04, 1.744032e-03, 6.278515e-03, 1.778913e-02, 4.066086e-02, 7.623911e-02, 1.185942e-01, 1.541724e-01, 1.681881e-01, 1.541724e-01, 1.185942e-01, 7.623911e-02, 4.066086e-02, 1.778913e-02, 6.278515e-03, 1.744032e-03, 3.671646e-04, 5.507469e-05, 5.245209e-06, 2.384186e-07};
       int smoothLen = 23;
       //horizontal is smoothing and vertical is derivative
-      fx = cvMat(1, smoothLen, FLOAT_MAT_TYPE, smoothp);
-      fy = cvMat(derivLen, 1, FLOAT_MAT_TYPE, derivp);
+      fx = cv::Mat(1, smoothLen, FLOAT_MAT_TYPE, smoothp);
+      fy = cv::Mat(derivLen, 1, FLOAT_MAT_TYPE, derivp);
     }
     break;
 
@@ -83,8 +95,8 @@ namespace LaneDetector
       //{-1.000000e-07, -5.400000e-06, -1.240000e-04, -1.561000e-03, -1.149400e-02, -4.787020e-02, -9.073680e-02, 2.144300e-02, 2.606970e-01, 2.144300e-02, -9.073680e-02, -4.787020e-02, -1.149400e-02, -1.561000e-03, -1.240000e-04, -5.400000e-06, -1.000000e-07};
       int smoothLen = 9; //9; 17;
       //horizontal is derivative and vertical is smoothing
-      fy = cvMat(1, smoothLen, FLOAT_MAT_TYPE, smoothp);
-      fx = cvMat(derivLen, 1, FLOAT_MAT_TYPE, derivp);
+      fy = cv::Mat(1, smoothLen, FLOAT_MAT_TYPE, smoothp);
+      fx = cv::Mat(derivLen, 1, FLOAT_MAT_TYPE, derivp);
     }
     break;
   }
@@ -93,22 +105,22 @@ namespace LaneDetector
   //SHOW_MAT(kernel, "Kernel:");
   }//#endif
 
-#warning "still check subtracting mean from image"
+//#warning "still check subtracting mean from image"
   //subtract mean
-  CvScalar mean = cvAvg(inImage);
-  cvSubS(inImage, mean, outImage);
+  cv::Scalar mean = cv::mean(*inImage);
+  *outImage = *inImage - mean;
 
 
   //do the filtering
-  cvFilter2D(outImage, outImage, &fx); //inImage outImage
-  cvFilter2D(outImage, outImage, &fy);
+  cv::filter2D(*outImage, *outImage, -1, fx); //inImage outImage
+  cv::filter2D(*outImage, *outImage, -1, fy);
 
 
-//     CvMat *deriv = cvCreateMat
+//     cv::Mat *deriv = new cv::Mat
 //     //define x
-//     CvMat *x = cvCreateMat(2*wx+1, 1, FLOAT_MAT_TYPE);
+//     cv::Mat *x = new cv::Mat(2*wx+1, 1, FLOAT_MAT_TYPE);
 //     //define y
-//     CvMat *y = cvCreateMat(2*wy+1, 1, FLOAT_MAT_TYPE);
+//     cv::Mat *y = new cv::Mat(2*wy+1, 1, FLOAT_MAT_TYPE);
 
 //     //create the convoultion kernel
 //     switch (lineType)
@@ -129,24 +141,24 @@ namespace LaneDetector
 //     }
 
 //     //combine the 2D kernel
-//     CvMat *kernel = cvCreateMat(2*wy+1, 2*wx+1, FLOAT_MAT_TYPE);
-//     cvGEMM(y, x, 1, 0, 1, kernel, CV_GEMM_B_T);
+//     cv::Mat *kernel = new cv::Mat(2*wy+1, 2*wx+1, FLOAT_MAT_TYPE);
+//     cv::gEMM(y, x, 1, 0, 1, kernel, CV_GEMM_B_T);
 
 //     //subtract the mean
-//     CvScalar mean = cvAvg(kernel);
-//     cvSubS(kernel, mean, kernel);
+//     cv::Scalar mean = cv::mean(*kernel);
+//     *kernel = *kernel - mean;
 
 //     #ifdef DEBUG_GET_STOP_LINES
 //     //SHOW_MAT(kernel, "Kernel:");
 //     #endif
 
 //     //do the filtering
-//     cvFilter2D(inImage, outImage, kernel);
+//     cv::filter2D(inImage, outImage, kernel);
 
 //     //clean
-//     cvReleaseMat(&x);
-//     cvReleaseMat(&y);
-//     cvReleaseMat(&kernel);
+//     delete x;
+//     delete y;
+//     delete kernel;
 }
 
 /**
@@ -155,17 +167,17 @@ namespace LaneDetector
  *
  * \param kernel input mat to hold the kernel (2*w+1x1)
  *      column vector (already allocated)
- * \param w width of kernel is 2*w+1
+ * \param w cols of kernel is 2*w+1
  * \param sigma std deviation
  */
-void mcvGetGaussianKernel(CvMat *kernel, unsigned char w, FLOAT sigma)
+void mcvGetGaussianKernel(cv::Mat *kernel, unsigned char w, LD_FLOAT sigma)
 {
   //get variance
   sigma *= sigma;
 
   //get the kernel
   for (double i=-w; i<=w; i++)
-      CV_MAT_ELEM(*kernel, FLOAT_MAT_ELEM_TYPE, int(i+w), 0) =
+      kernel->at<FLOAT_MAT_ELEM_TYPE>(int(i+w), 0) =
           (FLOAT_MAT_ELEM_TYPE) exp(-(.5/sigma)*(i*i));
 }
 
@@ -175,18 +187,18 @@ void mcvGetGaussianKernel(CvMat *kernel, unsigned char w, FLOAT sigma)
  *
  * \param kernel input mat to hold the kernel (2*w+1x1)
  *      column vector (already allocated)
- * \param w width of kernel is 2*w+1
+ * \param w cols of kernel is 2*w+1
  * \param sigma std deviation
  */
-void mcvGet2DerivativeGaussianKernel(CvMat *kernel,
-                                     unsigned char w, FLOAT sigma)
+void mcvGet2DerivativeGaussianKernel(cv::Mat *kernel,
+                                     unsigned char w, LD_FLOAT sigma)
 {
   //get variance
   sigma *= sigma;
 
   //get the kernel
   for (double i=-w; i<=w; i++)
-      CV_MAT_ELEM(*kernel, FLOAT_MAT_ELEM_TYPE, int(i+w), 0) =
+      kernel->at<FLOAT_MAT_ELEM_TYPE>(int(i+w), 0) =
           (FLOAT_MAT_ELEM_TYPE)
           (exp(-.5*i*i)/sigma - (i*i)*exp(-(.5/sigma)*i*i)/(sigma*sigma));
 }
@@ -200,45 +212,50 @@ void mcvGet2DerivativeGaussianKernel(CvMat *kernel,
  * \param lineScores scores of the detected lines (vector of floats)
  * \param lineType type of lines to detect
  *      LINE_HORIZONTAL (default) or LINE_VERTICAL
- * \param linePixelWidth width (or height) of lines to detect
+ * \param linePixelWidth cols (or rows) of lines to detect
  * \param localMaxima whether to detect local maxima or just get
  *      the maximum
  * \param detectionThreshold threshold for detection
  * \param smoothScores whether to smooth scores detected or not
  */
-void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
-                   vector <FLOAT> *lineScores, LineType lineType,
-                   FLOAT linePixelWidth, bool binarize, bool localMaxima,
-                   FLOAT detectionThreshold, bool smoothScores)
+void mcvGetHVLines(const cv::Mat *inImage, vector <Line> *lines,
+                   vector <LD_FLOAT> *lineScores, LineType lineType,
+                   LD_FLOAT linePixelWidth, bool binarize, bool localMaxima,
+                   LD_FLOAT detectionThreshold, bool smoothScores)
 {
-  CvMat * image = cvCloneMat(inImage);
+  cv::Mat *image;
   //binarize input image if to binarize
   if (binarize)
   {
     //mcvBinarizeImage(image);
-    image = cvCreateMat(inImage->rows, inImage->cols, INT_MAT_TYPE);
-    cvThreshold(inImage, image, 0, 1, CV_THRESH_BINARY); //0.05
+    image = new cv::Mat(inImage->rows, inImage->cols, INT_MAT_TYPE);
+    cv::threshold(*inImage, *image, 0, 1, cv::THRESH_BINARY); //0.05
+  }
+  else
+  {
+    image = new cv::Mat();
+    *image = inImage->clone();
   }
 
   //get sum of lines through horizontal or vertical
   //sumLines is a column vector
-  CvMat sumLines, *sumLinesp;
+  cv::Mat sumLines, *sumLinesp;
   int maxLineLoc = 0;
   switch (lineType)
   {
     case LINE_HORIZONTAL:
-      sumLinesp = cvCreateMat(image->height, 1, FLOAT_MAT_TYPE);
-      cvReduce(image, sumLinesp, 1, CV_REDUCE_SUM); //_AVG
-      cvReshape(sumLinesp, &sumLines, 0, 0);
+      sumLinesp = new cv::Mat(image->rows, 1, FLOAT_MAT_TYPE);
+      cv::reduce(*image, *sumLinesp, 1, cv::REDUCE_SUM); //_AVG
+      sumLines = sumLinesp->reshape(0, 0);
       //max location for a detected line
-      maxLineLoc = image->height-1;
+      maxLineLoc = image->rows-1;
       break;
     case LINE_VERTICAL:
-      sumLinesp = cvCreateMat(1, image->width, FLOAT_MAT_TYPE);
-      cvReduce(image, sumLinesp, 0, CV_REDUCE_SUM); //_AVG
-      cvReshape(sumLinesp, &sumLines, 0, image->width);
+      sumLinesp = new cv::Mat(1, image->cols, FLOAT_MAT_TYPE);
+      cv::reduce(*image, *sumLinesp, 0, cv::REDUCE_SUM); //_AVG
+      sumLines = sumLinesp->reshape(0, image->cols);
       //max location for a detected line
-      maxLineLoc = image->width-1;
+      maxLineLoc = image->cols-1;
       break;
   }
     //SHOW_MAT(&sumLines, "sumLines:");
@@ -254,9 +271,9 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
     0.000003726653172};
 // 	{0.000004,0.000010,0.000025,0.000063,0.000148,0.000335,0.000732,0.001534,0.003089,0.005976,0.011109,0.019841,0.034047,0.056135,0.088922,0.135335,0.197899,0.278037,0.375311,0.486752,0.606531,0.726149,0.835270,0.923116,0.980199,1.000000,0.980199,0.923116,0.835270,0.726149,0.606531,0.486752,0.375311,0.278037,0.197899,0.135335,0.088922,0.056135,0.034047,0.019841,0.011109,0.005976,0.003089,0.001534,0.000732,0.000335,0.000148,0.000063,0.000025,0.000010,0.000004};
   int smoothWidth = 21; //21; 51;
-  CvMat smooth = cvMat(1, smoothWidth, CV_32FC1, smoothp);
+  cv::Mat smooth = cv::Mat(1, smoothWidth, CV_32FC1, smoothp);
   if (smoothScores)
-    cvFilter2D(&sumLines, &sumLines, &smooth);
+    cv::filter2D(sumLines, sumLines, -1, smooth);
 //     SHOW_MAT(&sumLines, "sumLines:");
 
 
@@ -277,10 +294,10 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
     for(int i=1+LOCAL_MAX_IGNORE; i<sumLines.rows-1-LOCAL_MAX_IGNORE; i++)
     {
 	    //get that value
-	    FLOAT val = CV_MAT_ELEM(sumLines, FLOAT_MAT_ELEM_TYPE, i, 0);
+	    LD_FLOAT val = sumLines.at<FLOAT_MAT_ELEM_TYPE>(i, 0);
 	    //check if local maximum
-	    if( (val > CV_MAT_ELEM(sumLines, FLOAT_MAT_ELEM_TYPE, i-1, 0))
-        && (val > CV_MAT_ELEM(sumLines, FLOAT_MAT_ELEM_TYPE, i+1, 0))
+	    if( (val > sumLines.at<FLOAT_MAT_ELEM_TYPE>(i-1, 0))
+        && (val > sumLines.at<FLOAT_MAT_ELEM_TYPE>(i+1, 0))
         //		&& (i != maxLoc)
         && (val >= detectionThreshold) )
 	    {
@@ -321,25 +338,24 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
 
     //plot the line scores and the local maxima
     //if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
-//     gnuplot_ctrl *h =  mcvPlotMat1D(NULL, &sumLines, "Line Scores");
-//     CvMat *y = mcvVector2Mat(sumLinesMax);
-//     CvMat *x =  mcvVector2Mat(sumLinesMaxLoc);
+//     gnuplot_ctrl *h =  mcvPlotMat1D(nullptr, &sumLines, "Line Scores");
+//     cv::Mat *y = mcvVector2Mat(sumLinesMax);
+//     cv::Mat *x =  mcvVector2Mat(sumLinesMaxLoc);
 //     mcvPlotMat2D(h, x, y);
 //     //gnuplot_plot_xy(h, (double*)&sumLinesMaxLoc,(double*)&sumLinesMax, sumLinesMax.size(),"");
 //     cin.get();
 //     gnuplot_close(h);
-//     cvReleaseMat(&x);
-//     cvReleaseMat(&y);
+//     delete x;
+//     delete y;
 //}//#endif
   //process the found maxima
   for (int i=0; i<(int)sumLinesMax.size(); i++)
   {
     //get subpixel accuracy
     double maxLocAcc = mcvGetLocalMaxSubPixel(
-      CV_MAT_ELEM(sumLines, FLOAT_MAT_ELEM_TYPE, MAX(sumLinesMaxLoc[i]-1,0), 0),
-      CV_MAT_ELEM(sumLines, FLOAT_MAT_ELEM_TYPE, sumLinesMaxLoc[i], 0),
-      CV_MAT_ELEM(sumLines, FLOAT_MAT_ELEM_TYPE,
-                  MIN(sumLinesMaxLoc[i]+1,maxLineLoc), 0) );
+      sumLines.at<FLOAT_MAT_ELEM_TYPE>(MAX(sumLinesMaxLoc[i]-1,0), 0),
+      sumLines.at<FLOAT_MAT_ELEM_TYPE>(sumLinesMaxLoc[i], 0),
+      sumLines.at<FLOAT_MAT_ELEM_TYPE>(MIN(sumLinesMaxLoc[i]+1,maxLineLoc), 0) );
     maxLocAcc += sumLinesMaxLoc[i];
     maxLocAcc = MIN(MAX(0, maxLocAcc), maxLineLoc);
 
@@ -352,15 +368,15 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
     {
       case LINE_HORIZONTAL:
         line.startPoint.x = 0.5;
-        line.startPoint.y = (FLOAT)maxLocAcc + .5;//sumLinesMaxLoc[i]+.5;
-        line.endPoint.x = inImage->width-.5;
+        line.startPoint.y = (LD_FLOAT)maxLocAcc + .5;//sumLinesMaxLoc[i]+.5;
+        line.endPoint.x = inImage->cols-.5;
         line.endPoint.y = line.startPoint.y;
         break;
       case LINE_VERTICAL:
-        line.startPoint.x = (FLOAT)maxLocAcc + .5;//sumLinesMaxLoc[i]+.5;
+        line.startPoint.x = (LD_FLOAT)maxLocAcc + .5;//sumLinesMaxLoc[i]+.5;
         line.startPoint.y = .5;
         line.endPoint.x = line.startPoint.x;
-        line.endPoint.y = inImage->height-.5;
+        line.endPoint.y = inImage->rows-.5;
         break;
     }
     (*lines).push_back(line);
@@ -370,20 +386,21 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
 
   if(DEBUG_LINES)
   {//#ifdef DEBUG_GET_STOP_LINES
-    CvMat *im, *im2 = cvCloneMat(image);
+    cv::Mat *im, *im2 = new cv::Mat();
+    *im2 = image->clone();
     if (binarize)
-      cvConvertScale(im2, im2, 255, 0);
+      im2->convertTo(*im2, 255, 0);
 
     if (binarize)
-	    im = cvCreateMat(image->rows, image->cols, CV_8UC3);
+	    im = new cv::Mat(image->rows, image->cols, CV_8UC3);
     else
-	    im = cvCreateMat(image->rows, image->cols, CV_32FC3);
+	    im = new cv::Mat(image->rows, image->cols, CV_32FC3);
     mcvScaleMat(im2, im2);
-    cvCvtColor(im2, im, CV_GRAY2RGB);
+    cv::cvtColor(*im2, *im, cv::COLOR_GRAY2RGB);
     for (unsigned int i=0; i<lines->size(); i++)
     {
       Line line = (*lines)[i];
-      mcvIntersectLineWithBB(&line, cvSize(image->cols, image->rows), &line);
+      mcvIntersectLineWithBB(&line, cv::Size(image->cols, image->rows), &line);
       if (binarize)
         mcvDrawLine(im, line, CV_RGB(255,0,0), 1);
       else
@@ -401,16 +418,16 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
         break;
     }
     SHOW_IMAGE(im, str, 10);
-    cvReleaseMat(&im);
-    cvReleaseMat(&im2);
+    delete im;
+    delete im2;
   }
 
   //clean
-  cvReleaseMat(&sumLinesp);
-  //cvReleaseMat(&smooth);
+  delete sumLinesp;
+  //delete smooth;
   sumLinesMax.clear();
   sumLinesMaxLoc.clear();
-  cvReleaseMat(&image);
+  delete image;
 }
 
 
@@ -435,32 +452,34 @@ void mcvGetHVLines(const CvMat *inImage, vector <Line> *lines,
  * \param groupThreshold the minimum distance used for grouping (default 10)
  */
 
-void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
-                               vector <FLOAT> *lineScores,
-                               FLOAT rMin, FLOAT rMax, FLOAT rStep,
-                               FLOAT thetaMin, FLOAT thetaMax,
-                               FLOAT thetaStep, bool binarize, bool localMaxima,
-                               FLOAT detectionThreshold, bool smoothScores,
-                               bool group, FLOAT groupThreshold)
+void mcvGetHoughTransformLines(const cv::Mat *inImage, vector <Line> *lines,
+                               vector <LD_FLOAT> *lineScores,
+                               LD_FLOAT rMin, LD_FLOAT rMax, LD_FLOAT rStep,
+                               LD_FLOAT thetaMin, LD_FLOAT thetaMax,
+                               LD_FLOAT thetaStep, bool binarize, bool localMaxima,
+                               LD_FLOAT detectionThreshold, bool smoothScores,
+                               bool group, LD_FLOAT groupThreshold)
 {
-  CvMat *image;
+  cv::Mat *image;
 
   //binarize input image if to binarize
   if (!binarize)
   {
-    image = cvCloneMat(inImage); assert(image!=0);
+    image = new cv::Mat();
+    *image = inImage->clone();
+    assert(image!=0);
     //         mcvBinarizeImage(image);
   }
   //binarize input image
   else
   {
-    image = cvCreateMat(inImage->rows, inImage->cols, INT_MAT_TYPE);
-    cvThreshold(inImage, image, 0, 1, CV_THRESH_BINARY); //0.05
+    image = new cv::Mat(inImage->rows, inImage->cols, INT_MAT_TYPE);
+    cv::threshold(*inImage, *image, 0, 1, cv::THRESH_BINARY); //0.05
     //get max of image
     //double maxval, minval;
-    //cvMinMaxLoc(inImage, &minval, &maxval);
+    //cv::minMaxLoc(inImage, &minval, &maxval);
     //cout << "Max = " << maxval << "& Min=" << minval << "\n";
-    //CvScalar mean = cvAvg(inImage);
+    //cv::Scalar mean = cv::mean(*inImage);
     //cout << "Mean=" << mean.val[0] << "\n";
   }
 
@@ -472,15 +491,15 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
   //define the accumulator array: rows correspond to r and columns to theta
   int rBins = int((rMax-rMin)/rStep);
   int thetaBins = int((thetaMax-thetaMin)/thetaStep);
-  CvMat *houghSpace = cvCreateMat(rBins, thetaBins, CV_MAT_TYPE(image->type)); //FLOAT_MAT_TYPE);
+  cv::Mat *houghSpace = new cv::Mat(rBins, thetaBins, CV_MAT_TYPE(image->type())); //FLOAT_MAT_TYPE);
   assert(houghSpace!=0);
   //init to zero
-  cvSet(houghSpace, cvRealScalar(0));
+  houghSpace->setTo(0);
 
   //init values of r and theta
-  FLOAT *rs = new FLOAT[rBins];
-  FLOAT *thetas = new FLOAT[thetaBins];
-  FLOAT r, theta;
+  LD_FLOAT *rs = new LD_FLOAT[rBins];
+  LD_FLOAT *thetas = new LD_FLOAT[thetaBins];
+  LD_FLOAT r, theta;
   int ri, thetai;
   for (r=rMin+rStep/2,  ri=0 ; ri<rBins; ri++,r+=rStep)
     rs[ri] = r;
@@ -489,22 +508,22 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
     thetas[thetai] = theta;
 
   //get non-zero points in the image
-  int nzCount = cvCountNonZero(image);
-  CvMat *nzPoints = cvCreateMat(nzCount, 2, CV_32SC1);
+  int nzCount = cv::countNonZero(*image);
+  cv::Mat *nzPoints = new cv::Mat(nzCount, 2, CV_32SC1);
   int idx = 0;
-  for (int i=0; i<image->width; i++)
-    for (int j=0; j<image->height; j++)
-      if ( cvGetReal2D(image, j, i) )
+  for (int i=0; i<image->cols; i++)
+    for (int j=0; j<image->rows; j++)
+      if ( image->at<float>(j, i) )
       {
-        CV_MAT_ELEM(*nzPoints, int, idx, 0) = i;
-        CV_MAT_ELEM(*nzPoints, int, idx, 1) = j;
+        nzPoints->at<int>(idx, 0) = i;
+        nzPoints->at<int>(idx, 1) = j;
         idx++;
       }
 
     //calculate r values for all theta and all points
-    //CvMat *rPoints = cvCreateMat(image->width*image->height, thetaBins, CV_32SC1);//FLOAT_MAT_TYPE)
-    //CvMat *rPoints = cvCreateMat(nzCount, thetaBins, CV_32SC1);//FLOAT_MAT_TYPE);
-    //cvSet(rPoints, cvRealScalar(-1));
+    //cv::Mat *rPoints = new cv::Mat(image->cols*image->rows, thetaBins, CV_32SC1);//FLOAT_MAT_TYPE)
+    //cv::Mat *rPoints = new cv::Mat(nzCount, thetaBins, CV_32SC1);//FLOAT_MAT_TYPE);
+    //cv::set(rPoints, -1);
     //loop on x
     //float x=0.5, y=0.5;
     int i, k; //j
@@ -513,37 +532,37 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
       {
         //compute the r value for that point and that theta
         theta = thetas[k];
-        float rval = CV_MAT_ELEM(*nzPoints, int, i, 0) * cos(theta) +
-        CV_MAT_ELEM(*nzPoints, int, i, 1) * sin(theta); //x y
+        float rval = nzPoints->at<int>(i, 0) * cos(theta) +
+        nzPoints->at<int>(i, 1) * sin(theta); //x y
         int r = (int)( ( rval - rMin) / rStep);
-        //	    CV_MAT_ELEM(*rPoints, int, i, k) =
+        //	    rPoints->at<int>(i, k) =
         //(int)( ( rval - rMin) / rStep);
 
         //accumulate in the hough space if a valid value
-        if (r>=0 && r<rBins)
+        if (r>=0 && r<rBins) {
           if(binarize)
-            CV_MAT_ELEM(*houghSpace, INT_MAT_ELEM_TYPE, r, k)++;
-          //CV_MAT_ELEM(*image, INT_MAT_ELEM_TYPE, j, i);
-        else
-          CV_MAT_ELEM(*houghSpace, FLOAT_MAT_ELEM_TYPE, r, k)+=
-          CV_MAT_ELEM(*image, FLOAT_MAT_ELEM_TYPE,
-                      CV_MAT_ELEM(*nzPoints, int, i, 1),
-                      CV_MAT_ELEM(*nzPoints, int, i, 0));
+            houghSpace->at<INT_MAT_ELEM_TYPE>(r, k)++;
+          //image->at<INT_MAT_ELEM_TYPE>(j, i);
+        }
+        else {
+          houghSpace->at<FLOAT_MAT_ELEM_TYPE>(r, k)+=
+          image->at<FLOAT_MAT_ELEM_TYPE>(nzPoints->at<int>(i, 1), nzPoints->at<int>(i, 0));
+        }
       }
 
       //clear
-      cvReleaseMat(&nzPoints);
+      delete nzPoints;
 
 //     bool inside;
-//     for (i=0; i<image->width; i++) //x=0; x++
+//     for (i=0; i<image->cols; i++) //x=0; x++
 // 	//loop on y
-// 	for (j=0; j<image->height; j++) //y=0 y++
+// 	for (j=0; j<image->rows; j++) //y=0 y++
 // 	    //loop on theta
 // 	    for (k=0; k<thetaBins; k++)
 // 	    {
 // 		//compute the r value and then subtract rMin and div by rStep
 // 		//to get the r bin index to which it belongs (0->rBins-1)
-// 		if (lineConf->binarize && CV_MAT_ELEM(*image, INT_MAT_ELEM_TYPE, j, i) !=0)
+// 		if (lineConf->binarize && image->at<INT_MAT_ELEM_TYPE>(j, i) !=0)
 // 		    inside = true;
 // 		else if (!lineConf->binarize && CV_MAT_ELEM(*image, FLOAT_MAT_ELEM_TYPE,
 // 							    j, i) !=0)
@@ -555,7 +574,7 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
 // 		    theta = thetas[k];
 // 		    float rval = i * cos(theta) + j * sin(theta); //x y
 // 		    CV_MAT_ELEM(*rPoints, int,
-// 				i*image->height + j, k) =
+// 				i*image->rows + j, k) =
 // 			(int)( ( rval - lineConf->rMin) / lineConf->rStep);
 // 		}
 
@@ -567,30 +586,31 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
     //now we should accumulate the values into the approprate bins in the houghSpace
 //     for (ri=0; ri<rBins; ri++)
 // 	for (thetai=0; thetai<thetaBins; thetai++)
-// 	    for (i=0; i<image->width; i++)
-// 		for (j=0; j<image->height; j++)
+// 	    for (i=0; i<image->cols; i++)
+// 		for (j=0; j<image->rows; j++)
 // 		{
 // 		    //check if this cell belongs to that bin or not
 // 		    if (CV_MAT_ELEM(*rPoints, int,
-// 				    i*image->height + j , thetai)==ri)
+// 				    i*image->rows + j , thetai)==ri)
 // 		    {
 // 			if(lineConf->binarize)
-// 			    CV_MAT_ELEM(*houghSpace, INT_MAT_ELEM_TYPE, ri, thetai)++;
-// 			//CV_MAT_ELEM(*image, INT_MAT_ELEM_TYPE, j, i);
+// 			    houghSpace->at<INT_MAT_ELEM_TYPE>(ri, thetai)++;
+// 			//image->at<INT_MAT_ELEM_TYPE>(j, i);
 // 			else
-// 			    CV_MAT_ELEM(*houghSpace, FLOAT_MAT_ELEM_TYPE, ri, thetai)+=
-// 				CV_MAT_ELEM(*image, FLOAT_MAT_ELEM_TYPE, j, i);
+// 			    houghSpace->at<FLOAT_MAT_ELEM_TYPE>(ri, thetai)+=
+// 				image->at<FLOAT_MAT_ELEM_TYPE>(j, i);
 // 		    }
 // 		}
 
 
   //smooth hough transform
   if (smoothScores)
-    cvSmooth(houghSpace, houghSpace, CV_GAUSSIAN, 3);
+//    cv::smooth(houghSpace, houghSpace, CV_GAUSSIAN, 3);
+      cv::GaussianBlur(*houghSpace, *houghSpace, {3, 3}, 0);
 
   //get local maxima
   vector <double> maxLineScores;
-  vector <CvPoint> maxLineLocs;
+  vector <cv::Point> maxLineLocs;
   if (localMaxima)
   {
     //get local maxima in the hough space
@@ -604,8 +624,8 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
 
   //get the maximum value
   double maxLineScore;
-  CvPoint maxLineLoc;
-  cvMinMaxLoc(houghSpace, 0, &maxLineScore, 0, &maxLineLoc);
+  cv::Point maxLineLoc;
+  cv::minMaxLoc(*houghSpace, 0, &maxLineScore);
   if (maxLineScores.size()==0 && maxLineScore>=detectionThreshold)
   {
     maxLineScores.push_back(maxLineScore);
@@ -618,30 +638,31 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
     // 	cout << "Local maxima = " << maxLineScores.size() << "\n";
 
     {
-      CvMat *im, *im2 = cvCloneMat(image);
+      cv::Mat *im, *im2 = new cv::Mat();
+      *im2 = image->clone();
       if (binarize)
-        cvConvertScale(im2, im2, 255, 0);
+        im2->convertTo(*im2, 255, 0);
 
       if (binarize)
-        im = cvCreateMat(image->rows, image->cols, CV_8UC3);//cvCloneMat(image);
+        im = new cv::Mat(image->rows, image->cols, CV_8UC3);//cv::cloneMat(image);
       else
-        im = cvCreateMat(image->rows, image->cols, CV_32FC3);
-      cvCvtColor(im2, im, CV_GRAY2RGB);
+        im = new cv::Mat(image->rows, image->cols, CV_32FC3);
+      cv::cvtColor(*im2, *im, cv::COLOR_GRAY2RGB);
       for (int i=0; i<(int)maxLineScores.size(); i++)
       {
         Line line;
         assert(maxLineLocs[i].x>=0 && maxLineLocs[i].x<thetaBins);
         assert(maxLineLocs[i].y>=0 && maxLineLocs[i].y<rBins);
         mcvIntersectLineRThetaWithBB(rs[maxLineLocs[i].y], thetas[maxLineLocs[i].x],
-                                    cvSize(image->cols, image->rows), &line);
+                                    cv::Size(image->cols, image->rows), &line);
                                     if (binarize)
                                       mcvDrawLine(im, line, CV_RGB(255,0,0), 1);
                                     else
                                       mcvDrawLine(im, line, CV_RGB(1,0,0), 1);
       }
       SHOW_IMAGE(im, "Hough before grouping", 10);
-      cvReleaseMat(&im);
-      cvReleaseMat(&im2);
+      delete im;
+      delete im2;
 
       // 	    //debug
       // 	    cout << "Maxima detected:\n";
@@ -660,7 +681,7 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
     {
       //minimum distance so far
       float minDist = groupThreshold+5, dist = 0.;
-      vector<CvPoint>::iterator iloc, jloc,
+      vector<cv::Point>::iterator iloc, jloc,
       minIloc=maxLineLocs.begin(), minJloc=minIloc+1;
       vector<double>::iterator iscore, jscore, minIscore, minJscore;
       //compute pairwise distance between detected maxima
@@ -733,7 +754,7 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
             // 			iscore--;
             // 			iloc--;
             // 		    }
-            // 		    CvPoint tloc;
+            // 		    cv::Point tloc;
             // 		    double tscore;
             // 		    //swap
             // 		    tloc = *minIloc;
@@ -755,14 +776,15 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
 
   if(DEBUG_LINES) //#ifdef DEBUG_GET_STOP_LINES
   {
-    CvMat *im, *im2 = cvCloneMat(image);
+    cv::Mat *im, *im2 = new cv::Mat();
+    *im2 = image->clone();
     if (binarize)
-      cvConvertScale(im2, im2, 255, 0);
+      im2->convertTo(*im2, 255, 0);
     if (binarize)
-      im = cvCreateMat(image->rows, image->cols, CV_8UC3);//cvCloneMat(image);
+      im = new cv::Mat(image->rows, image->cols, CV_8UC3);//cv::cloneMat(image);
     else
-      im = cvCreateMat(image->rows, image->cols, CV_32FC3);
-    cvCvtColor(im2, im, CV_GRAY2RGB);
+      im = new cv::Mat(image->rows, image->cols, CV_32FC3);
+    cv::cvtColor(*im2, *im, cv::COLOR_GRAY2RGB);
     for (int i=0; i<(int)maxLineScores.size(); i++)
     {
       Line line;
@@ -770,37 +792,37 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
       assert(maxLineLocs[i].y>=0 && maxLineLocs[i].y<rBins);
       mcvIntersectLineRThetaWithBB(rs[maxLineLocs[i].y],
                                    thetas[maxLineLocs[i].x],
-                                   cvSize(image->cols, image->rows), &line);
+                                   cv::Size(image->cols, image->rows), &line);
       if (binarize)
         mcvDrawLine(im, line, CV_RGB(255,0,0), 1);
       else
         mcvDrawLine(im, line, CV_RGB(1,0,0), 1);
     }
     SHOW_IMAGE(im, "Hough after grouping", 10);
-    cvReleaseMat(&im);
-    cvReleaseMat(&im2);
+    delete im;
+    delete im2;
 
     //put local maxima in image
-    CvMat *houghSpaceClr;
+    cv::Mat *houghSpaceClr;
     if(binarize)
-      houghSpaceClr = cvCreateMat(houghSpace->height, houghSpace->width,
+      houghSpaceClr = new cv::Mat(houghSpace->rows, houghSpace->cols,
                                   CV_8UC3);
     else
-      houghSpaceClr = cvCreateMat(houghSpace->height, houghSpace->width,
+      houghSpaceClr = new cv::Mat(houghSpace->rows, houghSpace->cols,
                                   CV_32FC3);
     mcvScaleMat(houghSpace, houghSpace);
-    cvCvtColor(houghSpace, houghSpaceClr, CV_GRAY2RGB);
+    cv::cvtColor(*houghSpace, *houghSpaceClr, cv::COLOR_GRAY2RGB);
     for (int i=0; i<(int)maxLineLocs.size(); i++)
-      cvCircle(houghSpaceClr, cvPoint(maxLineLocs[i].x, maxLineLocs[i].y),
+      cv::circle(*houghSpaceClr, cv::Point(maxLineLocs[i].x, maxLineLocs[i].y),
               1, CV_RGB(1, 0, 0), -1);
               // 	    if(lineConf->binarize)
               // 		CV_MAT_ELEM(*houghSpace, unsigned char, maxLineLocs[i].y,
               // 			    maxLineLocs[i].x) = 255;
               // 	    else
-              // 		CV_MAT_ELEM(*houghSpace, float, maxLineLocs[i].y, maxLineLocs[i].x) = 1.f;
+              // 		houghSpace->at<float>(maxLineLocs[i].y, maxLineLocs[i].x) = 1.f;
               //show the hough space
     SHOW_IMAGE(houghSpaceClr, "Hough Space", 10);
-    cvReleaseMat(&houghSpaceClr);
+    delete houghSpaceClr;
               //SHOW_MAT(houghSpace, "Hough Space:");
   }//#endif
 
@@ -818,7 +840,7 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
       assert(maxLineLocs[i].y>=0 && maxLineLocs[i].y<rBins);
       mcvIntersectLineRThetaWithBB(rs[maxLineLocs[i].y],
                                    thetas[maxLineLocs[i].x],
-                                   cvSize(image->cols, image->rows), &line);
+                                   cv::Size(image->cols, image->rows), &line);
       //get line extent
       //put the extracted line
       lines->push_back(line);
@@ -835,9 +857,9 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
   }
 
   //clean up
-  cvReleaseMat(&image);
-  cvReleaseMat(&houghSpace);
-  //cvReleaseMat(&rPoints);
+  delete image;
+  delete houghSpace;
+  //delete rPoints;
   delete [] rs;
   delete [] thetas;
   maxLineScores.clear();
@@ -851,22 +873,22 @@ void mcvGetHoughTransformLines(const CvMat *inImage, vector <Line> *lines,
  *
  * \param inImage input & output image
  */
-void mcvBinarizeImage(CvMat *inImage)
+void mcvBinarizeImage(cv::Mat *inImage)
 {
 
-  if (CV_MAT_TYPE(inImage->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inImage->type())==FLOAT_MAT_TYPE)
   {
-    for (int i=0; i<inImage->height; i++)
-      for (int j=0; j<inImage->width; j++)
-        if (CV_MAT_ELEM(*inImage, FLOAT_MAT_ELEM_TYPE, i, j) != 0.f)
-          CV_MAT_ELEM(*inImage, FLOAT_MAT_ELEM_TYPE, i, j)=1;
+    for (int i=0; i<inImage->rows; i++)
+      for (int j=0; j<inImage->cols; j++)
+        if (inImage->at<FLOAT_MAT_ELEM_TYPE>(i, j) != 0.f)
+          inImage->at<FLOAT_MAT_ELEM_TYPE>(i, j)=1;
   }
-  else if (CV_MAT_TYPE(inImage->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inImage->type())==INT_MAT_TYPE)
   {
-    for (int i=0; i<inImage->height; i++)
-      for (int j=0; j<inImage->width; j++)
-        if (CV_MAT_ELEM(*inImage, INT_MAT_ELEM_TYPE, i, j) != 0)
-          CV_MAT_ELEM(*inImage, INT_MAT_ELEM_TYPE, i, j)=1;
+    for (int i=0; i<inImage->rows; i++)
+      for (int j=0; j<inImage->cols; j++)
+        if (inImage->at<INT_MAT_ELEM_TYPE>(i, j) != 0)
+          inImage->at<INT_MAT_ELEM_TYPE>(i, j)=1;
   }
   else
   {
@@ -886,17 +908,17 @@ void mcvBinarizeImage(CvMat *inImage)
  */
 #define MCV_VECTOR_MAX(type)  \
     /*row vector*/ \
-    if (inVector->height==1) \
+    if (inVector->rows==1) \
     { \
         /*initial value*/ \
-        tmax = (double) CV_MAT_ELEM(*inVector, type, 0, inVector->width-1); \
-        tmaxLoc = inVector->width-1; \
+        tmax = (double) inVector->at<type>(0, inVector->cols-1); \
+        tmaxLoc = inVector->cols-1; \
         /*loop*/ \
-        for (int i=inVector->width-1-ignore; i>=0+ignore; i--) \
+        for (int i=inVector->cols-1-ignore; i>=0+ignore; i--) \
         { \
-            if (tmax<CV_MAT_ELEM(*inVector, type, 0, i)) \
+            if (tmax<inVector->at<type>(0, i)) \
             { \
-                tmax = CV_MAT_ELEM(*inVector, type, 0, i); \
+                tmax = inVector->at<type>(0, i); \
                 tmaxLoc = i; \
             } \
         } \
@@ -905,29 +927,29 @@ void mcvBinarizeImage(CvMat *inImage)
     else \
     { \
         /*initial value*/ \
-        tmax = (double) CV_MAT_ELEM(*inVector, type, inVector->height-1, 0); \
-        tmaxLoc = inVector->height-1; \
+        tmax = (double) inVector->at<type>(inVector->rows-1, 0); \
+        tmaxLoc = inVector->rows-1; \
         /*loop*/ \
-        for (int i=inVector->height-1-ignore; i>=0+ignore; i--) \
+        for (int i=inVector->rows-1-ignore; i>=0+ignore; i--) \
         { \
-            if (tmax<CV_MAT_ELEM(*inVector, type, i, 0)) \
+            if (tmax<inVector->at<type>(i, 0)) \
             { \
-                tmax = (double) CV_MAT_ELEM(*inVector, type, i, 0); \
+                tmax = (double) inVector->at<type>(i, 0); \
                 tmaxLoc = i; \
             } \
         } \
     } \
 
-void mcvGetVectorMax(const CvMat *inVector, double *max, int *maxLoc, int ignore)
+void mcvGetVectorMax(const cv::Mat *inVector, double *max, int *maxLoc, int ignore)
 {
   double tmax;
   int tmaxLoc;
 
-  if (CV_MAT_TYPE(inVector->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inVector->type())==FLOAT_MAT_TYPE)
   {
     MCV_VECTOR_MAX(FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inVector->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inVector->type())==INT_MAT_TYPE)
   {
     MCV_VECTOR_MAX(INT_MAT_ELEM_TYPE)
   }
@@ -952,12 +974,12 @@ void mcvGetVectorMax(const CvMat *inVector, double *max, int *maxLoc, int ignore
  * \param inMat input matrix
  * \param localMaxima the output vector of local maxima
  * \param localMaximaLoc the vector of locations of the local maxima,
- *       where each location is cvPoint(x=col, y=row) zero-based
+ *       where each location is cv::Point(x=col, y=row) zero-based
  *
  */
 
-void mcvGetMatLocalMax(const CvMat *inMat, vector<double> &localMaxima,
-		     vector<CvPoint> &localMaximaLoc, double threshold)
+void mcvGetMatLocalMax(const cv::Mat *inMat, vector<double> &localMaxima,
+		     vector<cv::Point> &localMaximaLoc, double threshold)
 {
 
   double val;
@@ -969,38 +991,38 @@ void mcvGetMatLocalMax(const CvMat *inMat, vector<double> &localMaxima,
 	for (int j=1; j<inMat->cols-1; j++) \
 	{ \
 	    /*get the current value*/ \
-	    val = CV_MAT_ELEM(*inMat, type, i, j); \
+	    val = inMat->at<type>(i, j); \
 	    /*check if it's larger than all its neighbors*/ \
-	    if( val > CV_MAT_ELEM(*inMat, type, i-1, j-1) && \
-		val > CV_MAT_ELEM(*inMat, type, i-1, j) && \
-		val > CV_MAT_ELEM(*inMat, type, i-1, j+1) && \
-		val > CV_MAT_ELEM(*inMat, type, i, j-1) && \
-		val > CV_MAT_ELEM(*inMat, type, i, j+1) && \
-		val > CV_MAT_ELEM(*inMat, type, i+1, j-1) && \
-		val > CV_MAT_ELEM(*inMat, type, i+1, j) && \
-		val > CV_MAT_ELEM(*inMat, type, i+1, j+1) && \
+	    if( val > inMat->at<type>(i-1, j-1) && \
+		val > inMat->at<type>(i-1, j) && \
+		val > inMat->at<type>(i-1, j+1) && \
+		val > inMat->at<type>(i, j-1) && \
+		val > inMat->at<type>(i, j+1) && \
+		val > inMat->at<type>(i+1, j-1) && \
+		val > inMat->at<type>(i+1, j) && \
+		val > inMat->at<type>(i+1, j+1) && \
                 val >= threshold) \
 	    { \
 		/*found a local maxima, put it in the return vector*/ \
 		/*in decending order*/ \
 		/*iterators for the two vectors*/ \
 		vector<double>::iterator k; \
-		vector<CvPoint>::iterator l; \
+		vector<cv::Point>::iterator l; \
 		/*loop till we find the place to put it in descendingly*/ \
 		for(k=localMaxima.begin(), l=localMaximaLoc.begin(); \
 		    k != localMaxima.end()  && val<= *k; k++,l++); \
 		/*add its index*/ \
 		localMaxima.insert(k, val); \
-		localMaximaLoc.insert(l, cvPoint(j, i)); \
+		localMaximaLoc.insert(l, cv::Point(j, i)); \
 	    } \
 	}
 
   //check type
-  if (CV_MAT_TYPE(inMat->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inMat->type())==FLOAT_MAT_TYPE)
   {
     MCV_MAT_LOCAL_MAX(FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inMat->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inMat->type())==INT_MAT_TYPE)
   {
     MCV_MAT_LOCAL_MAX(INT_MAT_ELEM_TYPE)
   }
@@ -1017,12 +1039,12 @@ void mcvGetMatLocalMax(const CvMat *inMat, vector<double> &localMaxima,
  * \param inMat input matrix
  * \param maxima the output vector of maxima
  * \param maximaLoc the vector of locations of the maxima,
- *       where each location is cvPoint(x=col, y=row) zero-based
+ *       where each location is cv::Point(x=col, y=row) zero-based
  *
  */
 
-void mcvGetMatMax(const CvMat *inMat, vector<double> &maxima,
-                  vector<CvPoint> &maximaLoc, double threshold)
+void mcvGetMatMax(const cv::Mat *inMat, vector<double> &maxima,
+                  vector<cv::Point> &maximaLoc, double threshold)
 {
 
   double val;
@@ -1034,7 +1056,7 @@ void mcvGetMatMax(const CvMat *inMat, vector<double> &maxima,
 	for (int j=1; j<inMat->cols-1; j++) \
 	{ \
 	    /*get the current value*/ \
-	    val = CV_MAT_ELEM(*inMat, type, i, j); \
+	    val = inMat->at<type>(i, j); \
 	    /*check if it's larger than threshold*/ \
 	    if (val >= threshold) \
 	    { \
@@ -1042,22 +1064,22 @@ void mcvGetMatMax(const CvMat *inMat, vector<double> &maxima,
 		/*in decending order*/ \
 		/*iterators for the two vectors*/ \
 		vector<double>::iterator k; \
-		vector<CvPoint>::iterator l; \
+		vector<cv::Point>::iterator l; \
 		/*loop till we find the place to put it in descendingly*/ \
 		for(k=maxima.begin(), l=maximaLoc.begin(); \
 		    k != maxima.end()  && val<= *k; k++,l++); \
 		/*add its index*/ \
 		maxima.insert(k, val); \
-		maximaLoc.insert(l, cvPoint(j, i)); \
+		maximaLoc.insert(l, cv::Point(j, i)); \
 	    } \
 	}
 
   //check type
-  if (CV_MAT_TYPE(inMat->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inMat->type())==FLOAT_MAT_TYPE)
   {
     MCV_MAT_MAX(FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inMat->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inMat->type())==INT_MAT_TYPE)
   {
     MCV_MAT_MAX(INT_MAT_ELEM_TYPE)
   }
@@ -1079,15 +1101,15 @@ void mcvGetMatMax(const CvMat *inMat, vector<double> &maxima,
 #define MCV_VECTOR_LOCAL_MAX(type)						\
     /*loop on the vector and get points that are larger than their*/		\
     /*neighboring points*/							\
-    if(inVec->height == 1)							\
+    if(inVec->rows == 1)							\
     {										\
-	for(int i=1; i<inVec->width-1; i++)					\
+	for(int i=1; i<inVec->cols-1; i++)					\
 	{									\
 	    /*get the current value*/						\
-	    val = CV_MAT_ELEM(*inVec, type, 0, i);				\
+	    val = inVec->at<type>(0, i);				\
 	    /*check if it's larger than all its neighbors*/			\
-	    if( val > CV_MAT_ELEM(*inVec, type, 0, i-1) &&			\
-		val > CV_MAT_ELEM(*inVec, type, 0, i+1) )			\
+	    if( val > inVec->at<type>(0, i-1) &&			\
+		val > inVec->at<type>(0, i+1) )			\
 	    {									\
 		/*found a local maxima, put it in the return vector*/		\
 		/*in decending order*/						\
@@ -1105,13 +1127,13 @@ void mcvGetMatMax(const CvMat *inMat, vector<double> &maxima,
     }										\
     else									\
     {										\
-	for(int i=1; i<inVec->height-1; i++)					\
+	for(int i=1; i<inVec->rows-1; i++)					\
 	{									\
 	    /*get the current value*/						\
-	    val = CV_MAT_ELEM(*inVec, type, i, 0);				\
+	    val = inVec->at<type>(i, 0);				\
 	    /*check if it's larger than all its neighbors*/			\
-	    if( val > CV_MAT_ELEM(*inVec, type, i-1, 0) &&			\
-		val > CV_MAT_ELEM(*inVec, type, i+1, 0) )			\
+	    if( val > inVec->at<type>(i-1, 0) &&			\
+		val > inVec->at<type>(i+1, 0) )			\
 	    {									\
 		/*found a local maxima, put it in the return vector*/		\
 		/*in decending order*/						\
@@ -1128,18 +1150,18 @@ void mcvGetMatMax(const CvMat *inMat, vector<double> &maxima,
         }					\
     }
 
-void mcvGetVectorLocalMax(const CvMat *inVec, vector<double> &localMaxima,
+void mcvGetVectorLocalMax(const cv::Mat *inVec, vector<double> &localMaxima,
                           vector<int> &localMaximaLoc)
 {
 
   double val;
 
   //check type
-  if (CV_MAT_TYPE(inVec->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inVec->type())==FLOAT_MAT_TYPE)
   {
     MCV_VECTOR_LOCAL_MAX(FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inVec->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inVec->type())==INT_MAT_TYPE)
   {
     MCV_VECTOR_LOCAL_MAX(INT_MAT_ELEM_TYPE)
   }
@@ -1158,15 +1180,14 @@ void mcvGetVectorLocalMax(const CvMat *inVec, vector<double> &localMaxima,
  * \return the returned value
  *
  */
-FLOAT mcvGetQuantile(const CvMat *mat, FLOAT qtile)
+LD_FLOAT mcvGetQuantile(const cv::Mat *mat, LD_FLOAT qtile)
 {
   //make it a row vector
-  CvMat rowMat;
-  cvReshape(mat, &rowMat, 0, 1);
+  cv::Mat rowMat = mat->reshape(0, 1);
 
   //get the quantile
-  FLOAT qval;
-  qval = quantile((FLOAT*) rowMat.data.ptr, rowMat.width, qtile);
+  LD_FLOAT qval;
+  qval = quantile((LD_FLOAT*) rowMat.data, rowMat.cols, qtile);
 
   return qval;
 }
@@ -1181,25 +1202,25 @@ FLOAT mcvGetQuantile(const CvMat *mat, FLOAT qtile)
  * \param threshold threshold value
  *
  */
-void mcvThresholdLower(const CvMat *inMat, CvMat *outMat, FLOAT threshold)
+void mcvThresholdLower(const cv::Mat *inMat, cv::Mat *outMat, LD_FLOAT threshold)
 {
 
 #define MCV_THRESHOLD_LOWER(type) \
-     for (int i=0; i<inMat->height; i++) \
-        for (int j=0; j<inMat->width; j++) \
-            if ( CV_MAT_ELEM(*inMat, type, i, j)<threshold) \
-                CV_MAT_ELEM(*outMat, type, i, j)=(type) 0; /*check it, was: threshold*/\
+     for (int i=0; i<inMat->rows; i++) \
+        for (int j=0; j<inMat->cols; j++) \
+            if ( inMat->at<type>(i, j)<threshold) \
+                outMat->at<type>(i, j)=(type) 0; /*check it, was: threshold*/\
 
   //check if to copy into outMat or not
   if (inMat != outMat)
-    cvCopy(inMat, outMat);
+    inMat->copyTo(*outMat);
 
   //check type
-  if (CV_MAT_TYPE(inMat->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inMat->type())==FLOAT_MAT_TYPE)
   {
     MCV_THRESHOLD_LOWER(FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inMat->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inMat->type())==INT_MAT_TYPE)
   {
     MCV_THRESHOLD_LOWER(INT_MAT_ELEM_TYPE)
   }
@@ -1223,21 +1244,22 @@ void mcvThresholdLower(const CvMat *inMat, CvMat *outMat, FLOAT threshold)
  *
  *
  */
-void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
-		     vector<FLOAT> *lineScores, const CameraInfo *cameraInfo,
+void mcvGetStopLines(const cv::Mat *inImage, vector<Line> *stopLines,
+		     vector<LD_FLOAT> *lineScores, const CameraInfo *cameraInfo,
 		      LaneDetectorConf *stopLineConf)
 
 {
   //input size
-  CvSize inSize = cvSize(inImage->width, inImage->height);
+  cv::Size inSize = cv::Size(inImage->cols, inImage->rows);
 
   //TODO: smooth image
-  CvMat *image = cvCloneMat(inImage);
-  //cvSmooth(image, image, CV_GAUSSIAN, 5, 5, 1, 1);
+  cv::Mat *image  = new cv::Mat();
+  *image  = inImage->clone();
+  //cv::smooth(image, image, CV_GAUSSIAN, 5, 5, 1, 1);
 
   IPMInfo ipmInfo;
 
-//     //get the IPM size such that we have height of the stop line
+//     //get the IPM size such that we have rows of the stop line
 //     //is 3 pixels
 //     double ipmWidth, ipmHeight;
 //     mcvGetIPMExtent(cameraInfo, &ipmInfo);
@@ -1248,16 +1270,16 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
 //     stopLineConf->ipmHeight = int(ipmHeight);
 
 //         if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
-//     cout << "IPM width:" << stopLineConf->ipmWidth << " IPM height:"
+//     cout << "IPM cols:" << stopLineConf->ipmWidth << " IPM rows:"
 // 	 << stopLineConf->ipmHeight << "\n";
 //     }//#endif
 
 
   //Get IPM
-  CvSize ipmSize = cvSize((int)stopLineConf->ipmWidth,
+  cv::Size ipmSize = cv::Size((int)stopLineConf->ipmWidth,
                           (int)stopLineConf->ipmHeight);
-  CvMat * ipm;
-  ipm = cvCreateMat(ipmSize.height, ipmSize.width, inImage->type);
+  cv::Mat * ipm;
+  ipm = new cv::Mat(ipmSize.height, ipmSize.width, inImage->type());
   //mcvGetIPM(inImage, ipm, &ipmInfo, cameraInfo);
   ipmInfo.vpPortion = stopLineConf->ipmVpPortion;
   ipmInfo.ipmLeft = stopLineConf->ipmLeft;
@@ -1265,33 +1287,33 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
   ipmInfo.ipmTop = stopLineConf->ipmTop;
   ipmInfo.ipmBottom = stopLineConf->ipmBottom;
   ipmInfo.ipmInterpolation = stopLineConf->ipmInterpolation;
-  list<CvPoint> outPixels;
-  list<CvPoint>::iterator outPixelsi;
+  list<cv::Point> outPixels;
+  list<cv::Point>::iterator outPixelsi;
   mcvGetIPM(image, ipm, &ipmInfo, cameraInfo, &outPixels);
 
   //smooth the IPM
-  //cvSmooth(ipm, ipm, CV_GAUSSIAN, 5, 5, 1, 1);
+  //cv::smooth(ipm, ipm, CV_GAUSSIAN, 5, 5, 1, 1);
 
   //debugging
-  CvMat *dbIpmImage;
+  cv::Mat *dbIpmImage;
   if(DEBUG_LINES) {//    #ifdef DEBUG_GET_STOP_LINES
-      dbIpmImage = cvCreateMat(ipm->height, ipm->width, ipm->type);
-      cvCopy(ipm, dbIpmImage);
+      dbIpmImage = new cv::Mat(ipm->rows, ipm->cols, ipm->type());
+      ipm->copyTo(*dbIpmImage);
   }//#endif
 
 
-  //compute stop line width: 2000 mm
-  FLOAT stopLinePixelWidth = stopLineConf->lineWidth * ipmInfo.xScale;
-  //stop line pixel height: 12 inches = 12*25.4 mm
-  FLOAT stopLinePixelHeight = stopLineConf->lineHeight *  ipmInfo.yScale;
+  //compute stop line cols: 2000 mm
+  LD_FLOAT stopLinePixelWidth = stopLineConf->lineWidth * ipmInfo.xScale;
+  //stop line pixel rows: 12 inches = 12*25.4 mm
+  LD_FLOAT stopLinePixelHeight = stopLineConf->lineHeight *  ipmInfo.yScale;
   //kernel dimensions
   //unsigned char wx = 2;
   //unsigned char wy = 2;
-  FLOAT sigmax = stopLinePixelWidth;
-  FLOAT sigmay = stopLinePixelHeight;
+  LD_FLOAT sigmax = stopLinePixelWidth;
+  LD_FLOAT sigmay = stopLinePixelHeight;
 
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
-  //cout << "Line width:" << stopLinePixelWidth << "Line height:"
+  //cout << "Line cols:" << stopLinePixelWidth << "Line rows:"
   //	 << stopLinePixelHeight << "\n";
   }//#endif
 
@@ -1302,21 +1324,21 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
 
     //zero out points outside the image in IPM view
   for(outPixelsi=outPixels.begin(); outPixelsi!=outPixels.end(); outPixelsi++)
-    CV_MAT_ELEM(*ipm, float, (*outPixelsi).y, (*outPixelsi).x) = 0;
+    ipm->at<float>((*outPixelsi).y, (*outPixelsi).x) = 0;
   outPixels.clear();
 
   //zero out negative values
   mcvThresholdLower(ipm, ipm, 0);
 
   //compute quantile: .985
-  FLOAT qtileThreshold = mcvGetQuantile(ipm, stopLineConf->lowerQuantile);
+  LD_FLOAT qtileThreshold = mcvGetQuantile(ipm, stopLineConf->lowerQuantile);
   mcvThresholdLower(ipm, ipm, qtileThreshold);
 
   //debugging
-  CvMat *dbIpmImageThresholded;
+  cv::Mat *dbIpmImageThresholded;
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
-    dbIpmImageThresholded = cvCreateMat(ipm->height, ipm->width, ipm->type);
-    cvCopy(ipm, dbIpmImageThresholded);
+    dbIpmImageThresholded = new cv::Mat(ipm->rows, ipm->cols, ipm->type());
+    ipm->copyTo(*dbIpmImageThresholded);
   }//#endif
 
 
@@ -1336,7 +1358,7 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
 
   //use Hough Transform grouping
   case GROUPING_TYPE_HOUGH_LINES:
-    //FLOAT rMin = 0.05*ipm->height, rMax = 0.4*ipm->height, rStep = 1;
+    //FLOAT rMin = 0.05*ipm->rows, rMax = 0.4*ipm->rows, rStep = 1;
     //FLOAT thetaMin = 88*CV_PI/180, thetaMax = 92*CV_PI/180, thetaStep = 1*CV_PI/180;
     //bool group = false; FLOAT groupThreshold = 1;
     mcvGetHoughTransformLines(ipm, stopLines, lineScores,
@@ -1388,11 +1410,11 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
     }
     //convert them from world frame into camera frame
     //
-    //put a dummy line at the beginning till we check that cvDiv bug
+    //put a dummy line at the beginning till we check that cv::div bug
     Line dummy = {{1.,1.},{2.,2.}};
     stopLines->insert(stopLines->begin(), dummy);
     //convert to mat and get in image coordinates
-    CvMat *mat = cvCreateMat(2, 2*stopLines->size(), FLOAT_MAT_TYPE);
+    cv::Mat *mat = new cv::Mat(2, 2*stopLines->size(), FLOAT_MAT_TYPE);
     mcvLines2Mat(stopLines, mat);
     stopLines->clear();
     mcvTransformGround2Image(mat, mat, cameraInfo);
@@ -1401,7 +1423,7 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
     //remove the dummy line at the beginning
     stopLines->erase(stopLines->begin());
     //clear
-    cvReleaseMat(&mat);
+    delete mat;
 
     //clip the lines found and get their extent
     for (unsigned int i=0; i<stopLines->size(); i++)
@@ -1431,9 +1453,10 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
     }
     SHOW_IMAGE(dbIpmImage, "Stoplines IPM with lines", 10);
     //draw lines on original image
-    //CvMat *image = cvCreateMat(inImage->height, inImage->width, CV_32FC3);
-    //cvCvtColor(inImage, image, CV_GRAY2RGB);
-    //CvMat *image = cvCloneMat(inImage);
+    //cv::Mat *image = new cv::Mat(inImage->rows, inImage->cols, CV_32FC3);
+    //cv::cvtColor(*inImage, *image, cv::COLOR_GRAY2RGB);
+    //cv::Mat *image  = new cv::Mat();
+*image  = inImage->clone();
     //for (int i=0; i<(int)stopLines->size(); i++)
     for (int i=0; i<1 && stopLines->size()>0; i++)
     {
@@ -1442,15 +1465,15 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
       mcvDrawLine(image, (*stopLines)[i], CV_RGB(255,0,0), 3);
     }
     SHOW_IMAGE(image, "Detected Stoplines", 10);
-    //cvReleaseMat(&image);
-    cvReleaseMat(&dbIpmImage);
-    cvReleaseMat(&dbIpmImageThresholded);
+    //delete image;
+    delete dbIpmImage;
+    delete dbIpmImageThresholded;
     dbIpmStopLines.clear();
   }//#endif //DEBUG_GET_STOP_LINES
 
   //clear
-  cvReleaseMat(&ipm);
-  cvReleaseMat(&image);
+  delete ipm;
+  delete image;
   //ipmStopLines.clear();
 }
 
@@ -1465,22 +1488,23 @@ void mcvGetStopLines(const CvMat *inImage, vector<Line> *stopLines,
  * \param cameraInfo the camera parameters
  * \param stopLineConf parameters for stop line detection
  * \param state returns the current state and inputs the previous state to
- *   initialize the current detection (NULL to ignore)
+ *   initialize the current detection (nullptr to ignore)
  *
  *
  */
-void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
-                 vector<Line> *lanes, vector<FLOAT> *lineScores,
+void mcvGetLanes(const cv::Mat *inImage, const cv::Mat* clrImage,
+                 vector<Line> *lanes, vector<LD_FLOAT> *lineScores,
                  vector<Spline> *splines, vector<float> *splineScores,
                  CameraInfo *cameraInfo, LaneDetectorConf *stopLineConf,
                  LineState* state)
 {
   //input size
-  CvSize inSize = cvSize(inImage->width, inImage->height);
+  cv::Size inSize = cv::Size(inImage->cols, inImage->rows);
 
   //TODO: smooth image
-  CvMat *image = cvCloneMat(inImage);
-  //cvSmooth(image, image, CV_GAUSSIAN, 5, 5, 1, 1);
+  cv::Mat *image  = new cv::Mat();
+  *image  = inImage->clone();
+  //cv::smooth(image, image, CV_GAUSSIAN, 5, 5, 1, 1);
 
   //SHOW_IMAGE(image, "Input image", 10);
 
@@ -1490,7 +1514,7 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
   LineState newState;
   if(!state) state = &newState;
 
-//     //get the IPM size such that we have height of the stop line
+//     //get the IPM size such that we have rows of the stop line
 //     //is 3 pixels
 //     double ipmWidth, ipmHeight;
 //     mcvGetIPMExtent(cameraInfo, &ipmInfo);
@@ -1501,16 +1525,16 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
 //     stopLineConf->ipmHeight = int(ipmHeight);
 
 //     #ifdef DEBUG_GET_STOP_LINES
-//     cout << "IPM width:" << stopLineConf->ipmWidth << " IPM height:"
+//     cout << "IPM cols:" << stopLineConf->ipmWidth << " IPM rows:"
 // 	 << stopLineConf->ipmHeight << "\n";
 //     #endif
 
 
   //Get IPM
-  CvSize ipmSize = cvSize((int)stopLineConf->ipmWidth,
+  cv::Size ipmSize = cv::Size((int)stopLineConf->ipmWidth,
       (int)stopLineConf->ipmHeight);
-  CvMat * ipm;
-  ipm = cvCreateMat(ipmSize.height, ipmSize.width, inImage->type);
+  cv::Mat * ipm;
+  ipm = new cv::Mat(ipmSize.height, ipmSize.width, inImage->type());
   //mcvGetIPM(inImage, ipm, &ipmInfo, cameraInfo);
   ipmInfo.vpPortion = stopLineConf->ipmVpPortion;
   ipmInfo.ipmLeft = stopLineConf->ipmLeft;
@@ -1518,57 +1542,58 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
   ipmInfo.ipmTop = stopLineConf->ipmTop;
   ipmInfo.ipmBottom = stopLineConf->ipmBottom;
   ipmInfo.ipmInterpolation = stopLineConf->ipmInterpolation;
-  list<CvPoint> outPixels;
-  list<CvPoint>::iterator outPixelsi;
+  list<cv::Point> outPixels;
+  list<cv::Point>::iterator outPixelsi;
   mcvGetIPM(image, ipm, &ipmInfo, cameraInfo, &outPixels);
 
   //smooth the IPM image with 5x5 gaussian filter
-#warning "Check: Smoothing IPM image"
-  //cvSmooth(ipm, ipm, CV_GAUSSIAN, 3);
+//#warning "Check: Smoothing IPM image"
+  //cv::smooth(ipm, ipm, CV_GAUSSIAN, 3);
   //      SHOW_MAT(ipm, "ipm");
 
   //     //subtract mean
-  //     CvScalar mean = cvAvg(ipm);
-  //     cvSubS(ipm, mean, ipm);
+  //     cv::Scalar mean = cv::mean(*ipm);
+  //     *ipm = *ipm - mean;
 
   //keep copy
-  CvMat* rawipm = cvCloneMat(ipm);
+  cv::Mat* rawipm  = new cv::Mat();
+* rawipm  = ipm->clone();
 
   //smooth the IPM
-  //cvSmooth(ipm, ipm, CV_GAUSSIAN, 5, 5, 1, 1);
+  //cv::smooth(ipm, ipm, CV_GAUSSIAN, 5, 5, 1, 1);
 
   //debugging
-  CvMat *dbIpmImage;
+  cv::Mat *dbIpmImage;
   if(DEBUG_LINES)
   {//#ifdef DEBUG_GET_STOP_LINES
-    dbIpmImage = cvCreateMat(ipm->height, ipm->width, ipm->type);
-    cvCopy(ipm, dbIpmImage);
+    dbIpmImage = new cv::Mat(ipm->rows, ipm->cols, ipm->type());
+    ipm->copyTo(*dbIpmImage);
     //show the IPM image
     SHOW_IMAGE(dbIpmImage, "IPM image", 10);
   }//#endif
 
-  //compute stop line width: 2000 mm
-  FLOAT stopLinePixelWidth = stopLineConf->lineWidth *
+  //compute stop line cols: 2000 mm
+  LD_FLOAT stopLinePixelWidth = stopLineConf->lineWidth *
       ipmInfo.xScale;
-  //stop line pixel height: 12 inches = 12*25.4 mm
-  FLOAT stopLinePixelHeight = stopLineConf->lineHeight  *
+  //stop line pixel rows: 12 inches = 12*25.4 mm
+  LD_FLOAT stopLinePixelHeight = stopLineConf->lineHeight  *
       ipmInfo.yScale;
   //kernel dimensions
   //unsigned char wx = 2;
   //unsigned char wy = 2;
-  FLOAT sigmax = stopLinePixelWidth;
-  FLOAT sigmay = stopLinePixelHeight;
+  LD_FLOAT sigmax = stopLinePixelWidth;
+  LD_FLOAT sigmay = stopLinePixelHeight;
 
 //     //filter in the horizontal direction
-//     CvMat * ipmt = cvCreateMat(ipm->width, ipm->height, ipm->type);
-//     cvTranspose(ipm, ipmt);
+//     cv::Mat * ipmt = new cv::Mat(ipm->cols, ipm->rows, ipm->type());
+//     *ipmt = ipm->t();
 //     mcvFilterLines(ipmt, ipmt, stopLineConf->kernelWidth,
 // 		   stopLineConf->kernelHeight, sigmax, sigmay,
 // 		   LINE_VERTICAL);
 //     //retranspose
-//     CvMat *ipm2 = cvCreateMat(ipm->height, ipm->width, ipm->type);
-//     cvTranspose(ipmt, ipm2);
-//     cvReleaseMat(&ipmt);
+//     cv::Mat *ipm2 = new cv::Mat(ipm->rows, ipm->cols, ipm->type());
+//     *ipm2 = ipmt->t();
+//     delete ipmt;
 
   //filter the IPM image
   mcvFilterLines(ipm, ipm, stopLineConf->kernelWidth,
@@ -1581,20 +1606,20 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
   //zero out points outside the image in IPM view
   for(outPixelsi=outPixels.begin(); outPixelsi!=outPixels.end(); outPixelsi++)
   {
-    CV_MAT_ELEM(*ipm, float, (*outPixelsi).y, (*outPixelsi).x) = 0;
-  // 	CV_MAT_ELEM(*ipm2, float, (*outPixelsi).y, (*outPixelsi).x) = 0;
+    ipm->at<float>((*outPixelsi).y, (*outPixelsi).x) = 0;
+  // 	ipm2->at<float>((*outPixelsi).y, (*outPixelsi).x) = 0;
   }
   outPixels.clear();
 
-#warning "Check this clearing of IPM image for 2 lanes"
+//#warning "Check this clearing of IPM image for 2 lanes"
   if (stopLineConf->ipmWindowClear)
   {
     //check to blank out other periferi of the image
-    //blank from 60->100 (width 40)
-    CvRect mask = cvRect(stopLineConf->ipmWindowLeft, 0,
+    //blank from 60->100 (cols 40)
+    cv::Rect mask = cv::Rect(stopLineConf->ipmWindowLeft, 0,
                          stopLineConf->ipmWindowRight -
                          stopLineConf->ipmWindowLeft + 1,
-                         ipm->height);
+                         ipm->rows);
     mcvSetMat(ipm, mask, 0);
   }
 
@@ -1604,45 +1629,47 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
   }
 
   //take the negative to get double yellow lines
-  //cvScale(ipm, ipm, -1);
+  //cv::scale(ipm, ipm, -1);
 
-  CvMat *fipm = cvCloneMat(ipm);
+  cv::Mat *fipm  = new cv::Mat();
+*fipm  = ipm->clone();
 
     //zero out negative values
 //     SHOW_MAT(fipm, "fipm");
-#warning "clean negative parts in filtered image"
+//#warning "clean negative parts in filtered image"
   mcvThresholdLower(ipm, ipm, 0);
 //     mcvThresholdLower(ipm2, ipm2, 0);
 
 //     //add the two images
-//     cvAdd(ipm, ipm2, ipm);
+//     cv::add(ipm, ipm2, ipm);
 
 //     //clear the horizontal filtered image
-//     cvReleaseMat(&ipm2);
+//     delete ipm2;
 
   //fipm was here
   //make copy of filteed ipm image
 
-  vector <Line> dbIpmStopLines;
+  vector<Line> dbIpmStopLines;
   vector<Spline> dbIpmSplines;
 
   //int numStrips = 2;
-  int stripHeight = ipm->height / stopLineConf->numStrips;
+  int stripHeight = ipm->rows / stopLineConf->numStrips;
   for (int i=0; i<stopLineConf->numStrips; i++) //lines
   {
     //get the mask
-    CvRect mask;
-    mask = cvRect(0, i*stripHeight, ipm->width,
+    cv::Rect mask;
+    mask = cv::Rect(0, i*stripHeight, ipm->cols,
             stripHeight);
   // 	SHOW_RECT(mask, "Mask");
 
     //get the subimage to work on
-    CvMat *subimage = cvCloneMat(ipm);
+    cv::Mat *subimage  = new cv::Mat();
+*subimage  = ipm->clone();
     //clear all but the mask
     mcvSetMat(subimage, mask, 0);
 
     //compute quantile: .985
-    FLOAT qtileThreshold = mcvGetQuantile(subimage, stopLineConf->lowerQuantile);
+    LD_FLOAT qtileThreshold = mcvGetQuantile(subimage, stopLineConf->lowerQuantile);
     mcvThresholdLower(subimage, subimage, qtileThreshold);
   // 	FLOAT qtileThreshold = mcvGetQuantile(ipm, stopLineConf->lowerQuantile);
   // 	mcvThresholdLower(ipm, ipm, qtileThreshold);
@@ -1652,23 +1679,24 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
 
       //and fipm was here last
   //     //make copy of filtered ipm image
-  //     CvMat *fipm = cvCloneMat(ipm);
+  //     cv::Mat *fipm  = new cv::Mat();
+*fipm  = ipm->clone();
     vector<Line> subimageLines;
     vector<Spline> subimageSplines;
     vector<float> subimageLineScores, subimageSplineScores;
 
 	//check to blank out other periferi of the image
-// 	mask = cvRect(40, 0, 80, subimage->height);
+// 	mask = cv::Rect(40, 0, 80, subimage->rows);
 // 	mcvSetMat(subimage, mask, 0);
     if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
-	    CvMat *dbIpmImageThresholded;
-	    dbIpmImageThresholded = cvCreateMat(ipm->height, ipm->width, ipm->type);
-	    cvCopy(subimage, dbIpmImageThresholded);    //ipm
+	    cv::Mat *dbIpmImageThresholded;
+	    dbIpmImageThresholded = new cv::Mat(ipm->rows, ipm->cols, ipm->type());
+	    subimage->copyTo(*dbIpmImageThresholded);    //ipm
 	    char str[256];
 	    sprintf(str, "Lanes #%d thresholded IPM", i);
 	    //thresholded ipm
 	    SHOW_IMAGE(dbIpmImageThresholded, str, 10);
-	    cvReleaseMat(&dbIpmImageThresholded);
+	    delete dbIpmImageThresholded;
     }
 
     //get the lines/splines
@@ -1697,14 +1725,14 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
 	    for (unsigned int k=0; k<splines->size(); k++)
         dbIpmSplines.push_back((*splines)[k]);
 
-	    CvMat *dbIpmImageThresholded;
-	    dbIpmImageThresholded = cvCreateMat(ipm->height, ipm->width, ipm->type);
-	    cvCopy(subimage, dbIpmImageThresholded);    //ipm
+	    cv::Mat *dbIpmImageThresholded;
+	    dbIpmImageThresholded = new cv::Mat(ipm->rows, ipm->cols, ipm->type());
+	    subimage->copyTo(*dbIpmImageThresholded);    //ipm
 	    char str[256];
 	    sprintf(str, "Lanes #%d thresholded IPM", i);
 	    //thresholded ipm
 	    SHOW_IMAGE(dbIpmImageThresholded, str, 10);
-	    cvReleaseMat(&dbIpmImageThresholded);
+	    delete dbIpmImageThresholded;
 
 	    //dbIpmStopLines = *lanes;
 	    //dbIpmSplines = *splines;
@@ -1717,7 +1745,7 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
     }//#endif
 
     //release
-    cvReleaseMat(&subimage);
+    delete subimage;
   }
 
   //postprocess lines/splines //rawipm
@@ -1743,9 +1771,10 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
 
     SHOW_IMAGE(dbIpmImage, "Lanes IPM with lines", 10);
     //draw lines on original image
-    CvMat *imageClr = cvCreateMat(inImage->height, inImage->width, CV_32FC3);
-    cvCvtColor(image, imageClr, CV_GRAY2RGB);
-    //CvMat *image = cvCloneMat(inImage);
+    cv::Mat *imageClr = new cv::Mat(inImage->rows, inImage->cols, CV_32FC3);
+    cv::cvtColor(*image, *imageClr, cv::COLOR_GRAY2RGB);
+    //cv::Mat *image  = new cv::Mat();
+*image  = inImage->clone();
     //for (int i=0; i<(int)stopLines->size(); i++)
     if (stopLineConf->ransacLine || !stopLineConf->ransacSpline)
       for (int i=0; i<(int)lanes->size(); i++)
@@ -1756,24 +1785,24 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
         mcvDrawSpline(imageClr, (*splines)[i], CV_RGB(255,0,0), 1);
         sprintf(str, "%.2f", (*splineScores)[i]);
         mcvDrawText(imageClr, str,
-              cvPointFrom32f((*splines)[i].points[(*splines)[i].degree]),
+              cv::Point((*splines)[i].points[(*splines)[i].degree]),
               .5, CV_RGB(0, 0, 255));
       }
 
     SHOW_IMAGE(imageClr, "Detected lanes", 0);
-    //cvReleaseMat(&image);
-    cvReleaseMat(&dbIpmImage);
-    //cvReleaseMat(&dbIpmImageThresholded);
-    cvReleaseMat(&imageClr);
+    //delete image;
+    delete dbIpmImage;
+    //delete dbIpmImageThresholded;
+    delete imageClr;
     dbIpmStopLines.clear();
     dbIpmSplines.clear();
   }//#endif //DEBUG_GET_STOP_LINES
 
   //clear
-  cvReleaseMat(&ipm);
-  cvReleaseMat(&image);
-  cvReleaseMat(&fipm);
-  cvReleaseMat(&rawipm);
+  delete ipm;
+  delete image;
+  delete fipm;
+  delete rawipm;
   //ipmStopLines.clear();
 }
 
@@ -1795,14 +1824,14 @@ void mcvGetLanes(const CvMat *inImage, const CvMat* clrImage,
  * \param cameraInfo the camera info structure
  *
  */
-void mcvPostprocessLines(const CvMat* image, const CvMat* clrImage,
-                         const CvMat* rawipm, const CvMat* fipm,
+void mcvPostprocessLines(const cv::Mat* image, const cv::Mat* clrImage,
+                         const cv::Mat* rawipm, const cv::Mat* fipm,
                          vector<Line> &lines, vector<float> &lineScores,
                          vector<Spline> &splines, vector<float> &splineScores,
                          LaneDetectorConf *lineConf, LineState *state,
                          IPMInfo &ipmInfo, CameraInfo &cameraInfo)
 {
-  CvSize inSize = cvSize(image->width-1, image->height-1);
+  cv::Size inSize = cv::Size(image->cols-1, image->rows-1);
 
   //vector of splines to keep
   vector<Spline> keepSplines;
@@ -1841,25 +1870,25 @@ void mcvPostprocessLines(const CvMat* image, const CvMat* clrImage,
           || splineStatus & HorizontalSpline))
       {
         //better localize points
-        CvMat *points = mcvEvalBezierSpline(splines[i], .1); //.05
+        cv::Mat *points = mcvEvalBezierSpline(splines[i], .1); //.05
         //mcvLocalizePoints(ipm, points, points); //inImage
         //extend spline
-        CvMat* p = mcvExtendPoints(rawipm, points,
+        cv::Mat* p = mcvExtendPoints(rawipm, points,
                 lineConf->extendIPMAngleThreshold,
                 lineConf->extendIPMMeanDirAngleThreshold,
                 lineConf->extendIPMLinePixelsTangent,
                 lineConf->extendIPMLinePixelsNormal,
                 lineConf->extendIPMContThreshold,
                 lineConf->extendIPMDeviationThreshold,
-                cvRect(0, lineConf->extendIPMRectTop,
-                  rawipm->width-1,
+                cv::Rect(0, lineConf->extendIPMRectTop,
+                  rawipm->cols-1,
                   lineConf->extendIPMRectBottom-lineConf->extendIPMRectTop),
                 false);
         //refit spline
         Spline spline = mcvFitBezierSpline(p, lineConf->ransacSplineDegree);
 
 		//save
-#warning "Check this later: extension in IPM. Check threshold value"
+//#warning "Check this later: extension in IPM. Check threshold value"
 // 		splines[i] = spline;
 
 		//calculate the score from fipm or ipm (thresholded)
@@ -1882,8 +1911,8 @@ void mcvPostprocessLines(const CvMat* image, const CvMat* clrImage,
           keepSplineScores.push_back(splineScores[i]);
         }
         //clear
-        cvReleaseMat(&points);
-        cvReleaseMat(&p);
+        delete points;
+        delete p;
       } //if
     } //for
 
@@ -1952,29 +1981,29 @@ void mcvPostprocessLines(const CvMat* image, const CvMat* clrImage,
 	    if (!(splineStatus & (CurvedSpline|CurvedSplineTheta)))
 	    {
         //better localize points
-        CvMat *points = mcvEvalBezierSpline(splines[i], .05);
-        // 	    CvMat *points = mcvGetBezierSplinePixels((*splines)[i], .05,
-        // 						     cvSize(inImage->width-1,
-        // 							    inImage->height-1),
+        cv::Mat *points = mcvEvalBezierSpline(splines[i], .05);
+        // 	    cv::Mat *points = mcvGetBezierSplinePixels((*splines)[i], .05,
+        // 						     cv::Size(inImage->cols-1,
+        // 							    inImage->rows-1),
         // 						     true);
-        // 	    CvMat *p = cvCreateMat(points->height, points->width, CV_32FC1);
-        // 	    cvConvert(points, p);
+        // 	    cv::Mat *p = new cv::Mat(points->rows, points->cols, CV_32FC1);
+        // 	    cv::convert(points, p);
         mcvLocalizePoints(image, points, points, lineConf->localizeNumLinePixels,
               lineConf->localizeAngleThreshold); //inImage
 
         //get color
-        CvMat* clrPoints = points;
+        cv::Mat* clrPoints = points;
 
         //extend spline
-        CvMat* p = mcvExtendPoints(image, points,
+        cv::Mat* p = mcvExtendPoints(image, points,
                                    lineConf->extendAngleThreshold,
                                    lineConf->extendMeanDirAngleThreshold,
                                    lineConf->extendLinePixelsTangent,
                                    lineConf->extendLinePixelsNormal,
                                    lineConf->extendContThreshold,
                                    lineConf->extendDeviationThreshold,
-                    cvRect(0, lineConf->extendRectTop,
-                           image->width,
+                    cv::Rect(0, lineConf->extendRectTop,
+                           image->cols,
                            lineConf->extendRectBottom-lineConf->extendRectTop));
 
         //refit
@@ -2021,8 +2050,8 @@ void mcvPostprocessLines(const CvMat* image, const CvMat* clrImage,
                             : LINE_COLOR_WHITE;
 
         //clear
-        cvReleaseMat(&points);
-        cvReleaseMat(&p);
+        delete points;
+        delete p;
 
         //put it
         spline.color = clr;
@@ -2068,7 +2097,7 @@ void mcvPostprocessLines(const CvMat* image, const CvMat* clrImage,
  * \param state the state for RANSAC splines
  *
  */
-void mcvGetLines(const CvMat* image, LineType lineType,
+void mcvGetLines(const cv::Mat* image, LineType lineType,
                  vector<Line> &lines, vector<float> &lineScores,
                  vector<Spline> &splines, vector<float> &splineScores,
                  LaneDetectorConf *lineConf, LineState *state)
@@ -2090,7 +2119,7 @@ void mcvGetLines(const CvMat* image, LineType lineType,
 
   //use Hough Transform grouping
   case GROUPING_TYPE_HOUGH_LINES:
-	//FLOAT rMin = 0.05*ipm->height, rMax = 0.4*ipm->height, rStep = 1;
+	//FLOAT rMin = 0.05*ipm->rows, rMax = 0.4*ipm->rows, rStep = 1;
 	//FLOAT thetaMin = 88*CV_PI/180, thetaMax = 92*CV_PI/180, thetaStep = 1*CV_PI/180;
 	//	bool group = true; FLOAT groupThreshold = 15;
     mcvGetHoughTransformLines(image, &lines, &lineScores,
@@ -2109,7 +2138,7 @@ void mcvGetLines(const CvMat* image, LineType lineType,
 //     if (lineConf->group)
 // 	mcvGroupLines(lines, lineScores,
 // 		      lineConf->groupThreshold,
-// 		      cvSize(image->width, image->height));
+// 		      cv::Size(image->cols, image->rows));
   if (lineConf->checkLaneWidth)
     mcvCheckLaneWidth(lines, lineScores,
                       lineConf->checkLaneWidthMean,
@@ -2132,7 +2161,7 @@ void mcvGetLines(const CvMat* image, LineType lineType,
     //frame
     state->ipmBoxes.clear();
     mcvGetSplinesBoundingBoxes(splines, lineType,
-                               cvSize(image->width, image->height),
+                               cv::Size(image->cols, image->rows),
                                state->ipmBoxes);
 }
 
@@ -2189,13 +2218,13 @@ int mcvCheckSpline(const Spline &spline, float curvenessThreshold,
       check&ShortSpline? "short" : "not short",
       check&HorizontalSpline? "horiz" : "not horiz");
 
-    CvMat* im = cvCreateMat(480, 640, CV_8UC3);
-    cvSet(im, cvRealScalar(0.));
+    cv::Mat* im = new cv::Mat(480, 640, CV_8UC3);
+    im->setTo(0.);
     //draw splines
     mcvDrawSpline(im, spline, CV_RGB(255, 0, 0), 1);
     SHOW_IMAGE(im, "Check Splines", 10);
     //clear
-    cvReleaseMat(&im);
+    delete im;
   }//#endif
 
   return check;
@@ -2209,7 +2238,7 @@ int mcvCheckSpline(const Spline &spline, float curvenessThreshold,
  * \return code that determines what to do with the points
  *
  */
-int mcvCheckPoints(const CvMat* points)
+int mcvCheckPoints(const cv::Mat* points)
 {
 
   //get the spline features
@@ -2233,21 +2262,21 @@ int mcvCheckPoints(const CvMat* points)
       check & (ShortSpline|CurvedSpline|HorizontalSpline)
       ? "YES" : "NO ", curveness, thetaDiff, meanTheta);
 
-    CvMat* im = cvCreateMat(480, 640, CV_8UC3);
-    cvSet(im, cvRealScalar(0.));
+    cv::Mat* im = new cv::Mat(480, 640, CV_8UC3);
+    im->setTo(0.);
     //draw splines
-    for (int i=0; i<points->height-1; i++)
+    for (int i=0; i<points->rows-1; i++)
     {
 	    Line line;
-	    line.startPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, i, 0),
-                                     CV_MAT_ELEM(*points, float, i, 1));
-	    line.endPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, i+1, 0),
-                                   CV_MAT_ELEM(*points, float, i+1, 1));
+	    line.startPoint = cv::Point(points->at<float>(i, 0),
+                                     points->at<float>(i, 1));
+	    line.endPoint = cv::Point(points->at<float>(i+1, 0),
+                                   points->at<float>(i+1, 1));
 	    mcvDrawLine(im, line, CV_RGB(255, 0, 0), 1);
     }
     SHOW_IMAGE(im, "Check Points", 0);
     //clear
-    cvReleaseMat(&im);
+    delete im;
   }//#endif
 
   return check;
@@ -2264,20 +2293,20 @@ int mcvCheckPoints(const CvMat* points)
  *
  *
  */
-void mcvLines2Mat(const vector<Line> *lines, CvMat *mat)
+void mcvLines2Mat(const vector<Line> *lines, cv::Mat *mat)
 {
   //allocate the matrix
-  //*mat = cvCreateMat(2, size*2, FLOAT_MAT_TYPE);
+  //*mat = new cv::Mat(2, size*2, FLOAT_MAT_TYPE);
 
   //loop and put values
   int j;
   for (int i=0; i<(int)lines->size(); i++)
   {
     j = 2*i;
-    CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 0, j) = (*lines)[i].startPoint.x;
-    CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 1, j) = (*lines)[i].startPoint.y;
-    CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 0, j+1) = (*lines)[i].endPoint.x;
-    CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 1, j+1) = (*lines)[i].endPoint.y;
+    mat->at<FLOAT_MAT_ELEM_TYPE>(0, j) = (*lines)[i].startPoint.x;
+    mat->at<FLOAT_MAT_ELEM_TYPE>(1, j) = (*lines)[i].startPoint.y;
+    mat->at<FLOAT_MAT_ELEM_TYPE>(0, j+1) = (*lines)[i].endPoint.x;
+    mat->at<FLOAT_MAT_ELEM_TYPE>(1, j+1) = (*lines)[i].endPoint.y;
   }
 }
 
@@ -2291,19 +2320,19 @@ void mcvLines2Mat(const vector<Line> *lines, CvMat *mat)
  *
  *
  */
-void mcvMat2Lines(const CvMat *mat, vector<Line> *lines)
+void mcvMat2Lines(const cv::Mat *mat, vector<Line> *lines)
 {
 
   Line line;
   //loop and put values
-  for (int i=0; i<int(mat->width/2); i++)
+  for (int i=0; i<int(mat->cols/2); i++)
   {
     int j = 2*i;
     //get the line
-    line.startPoint.x = CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 0, j);
-    line.startPoint.y =  CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 1, j);
-    line.endPoint.x = CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 0, j+1);
-    line.endPoint.y = CV_MAT_ELEM(*mat, FLOAT_MAT_ELEM_TYPE, 1, j+1);
+    line.startPoint.x = mat->at<FLOAT_MAT_ELEM_TYPE>(0, j);
+    line.startPoint.y =  mat->at<FLOAT_MAT_ELEM_TYPE>(1, j);
+    line.endPoint.x = mat->at<FLOAT_MAT_ELEM_TYPE>(0, j+1);
+    line.endPoint.y = mat->at<FLOAT_MAT_ELEM_TYPE>(1, j+1);
     //push it
     lines->push_back(line);
   }
@@ -2318,7 +2347,7 @@ void mcvMat2Lines(const CvMat *mat, vector<Line> *lines)
  * \param outLine the output line
  *
  */
-void mcvIntersectLineWithBB(const Line *inLine, const CvSize bbox,
+void mcvIntersectLineWithBB(const Line *inLine, const cv::Size bbox,
                             Line *outLine)
 {
   //put output
@@ -2336,14 +2365,14 @@ void mcvIntersectLineWithBB(const Line *inLine, const CvSize bbox,
   if (!(startInside && endInside))
   {
     //difference
-    FLOAT deltax, deltay;
+    LD_FLOAT deltax, deltay;
     deltax = inLine->endPoint.x - inLine->startPoint.x;
     deltay = inLine->endPoint.y - inLine->startPoint.y;
     //hold parameters
-    FLOAT t[4]={2,2,2,2};
-    FLOAT xup, xdown, yleft, yright;
+    LD_FLOAT t[4]={2,2,2,2};
+    LD_FLOAT xup, xdown, yleft, yright;
 
-    //intersect with top and bottom borders: y=0 and y=bbox.height-1
+    //intersect with top and bottom borders: y=0 and y=bbox.rows-1
     if (deltay==0) //horizontal line
     {
       xup = xdown = bbox.width+2;
@@ -2370,8 +2399,8 @@ void mcvIntersectLineWithBB(const Line *inLine, const CvSize bbox,
     }
 
     //points of intersection
-    FLOAT_POINT2D pts[4] = {{xup, 0},{xdown,bbox.height},
-      {0, yleft},{bbox.width, yright}};
+    FLOAT_POINT2D pts[4] = {{xup, 0},{xdown,static_cast<float>(bbox.height)},
+	{ 0, yleft }, { static_cast<float>(bbox.width), yright } };
 
     //now decide which stays and which goes
     int i;
@@ -2451,13 +2480,13 @@ void mcvIntersectLineWithBB(const Line *inLine, const CvSize bbox,
  * \param outLine the output line
  *
  */
-void mcvIntersectLineRThetaWithBB(FLOAT r, FLOAT theta, const CvSize bbox,
+void mcvIntersectLineRThetaWithBB(LD_FLOAT r, LD_FLOAT theta, const cv::Size bbox,
                                   Line *outLine)
 {
   //hold parameters
   double xup, xdown, yleft, yright;
 
-  //intersect with top and bottom borders: y=0 and y=bbox.height-1
+  //intersect with top and bottom borders: y=0 and y=bbox.rows-1
   if (cos(theta)==0) //horizontal line
   {
     xup = xdown = bbox.width+2;
@@ -2480,8 +2509,8 @@ void mcvIntersectLineRThetaWithBB(FLOAT r, FLOAT theta, const CvSize bbox,
   }
 
   //points of intersection
-  FLOAT_POINT2D pts[4] = {{xup, 0},{xdown,bbox.height},
-        {0, yleft},{bbox.width, yright}};
+  FLOAT_POINT2D pts[4] = { { static_cast<float>(xup), 0 }, { static_cast<float>(xdown), static_cast<float>(bbox.height) },
+  { 0, static_cast<float>(yleft) }, { static_cast<float>(bbox.width), static_cast<float>(yright) } };
 
   //get the starting point
   int i;
@@ -2519,7 +2548,7 @@ void mcvIntersectLineRThetaWithBB(FLOAT r, FLOAT theta, const CvSize bbox,
  * \param outLine the output line
  *
  */
-bool mcvIsPointInside(FLOAT_POINT2D point, CvSize bbox)
+bool mcvIsPointInside(FLOAT_POINT2D point, cv::Size bbox)
 {
   return (point.x>=0 && point.x<=bbox.width
       && point.y>=0 && point.y<=bbox.height) ? true : false;
@@ -2537,7 +2566,7 @@ bool mcvIsPointInside(FLOAT_POINT2D point, CvSize bbox)
  * \param outLine the output line
  *
  */
-void mcvIntersectLineRThetaWithRect(FLOAT r, FLOAT theta, const Line &rect,
+void mcvIntersectLineRThetaWithRect(LD_FLOAT r, LD_FLOAT theta, const Line &rect,
                                     Line &outLine)
 {
   //hold parameters
@@ -2566,8 +2595,8 @@ void mcvIntersectLineRThetaWithRect(FLOAT r, FLOAT theta, const Line &rect,
   }
 
   //points of intersection
-  FLOAT_POINT2D pts[4] = {{xup, rect.startPoint.y},{xdown,rect.endPoint.y},
-        {rect.startPoint.x, yleft},{rect.endPoint.x, yright}};
+  FLOAT_POINT2D pts[4] = { { static_cast<float>(xup), rect.startPoint.y }, { static_cast<float>(xdown), rect.endPoint.y },
+  { rect.startPoint.x, static_cast<float>(yleft) }, { rect.endPoint.x, static_cast<float>(yright) } };
 
   //get the starting point
   int i;
@@ -2615,7 +2644,7 @@ bool mcvIsPointInside(FLOAT_POINT2D &point, const Line &rect)
  * \param rect the specified rectangle
  *
  */
-bool mcvIsPointInside(FLOAT_POINT2D &point, const CvRect &rect)
+bool mcvIsPointInside(FLOAT_POINT2D &point, const cv::Rect &rect)
 {
   return (point.x>=rect.x && point.x<=(rect.x+rect.width)
       && point.y>=rect.y && point.y<=(rect.y+rect.height)) ? true : false;
@@ -2627,13 +2656,12 @@ bool mcvIsPointInside(FLOAT_POINT2D &point, const CvRect &rect)
  * \param outMat output FLOAT matrix
  *
  */
-void mcvMatInt2Float(const CvMat *inMat, CvMat *outMat)
+void mcvMatInt2Float(const cv::Mat *inMat, cv::Mat *outMat)
 {
-  for (int i=0; i<inMat->height; i++)
-    for (int j=0; j<inMat->width; j++)
-      CV_MAT_ELEM(*outMat, FLOAT_MAT_ELEM_TYPE, i, j) =
-            (FLOAT_MAT_ELEM_TYPE) CV_MAT_ELEM(*inMat, INT_MAT_ELEM_TYPE,
-                                              i, j)/255;
+  for (int i=0; i<inMat->rows; i++)
+    for (int j=0; j<inMat->cols; j++)
+      outMat->at<FLOAT_MAT_ELEM_TYPE>(i, j) =
+            (FLOAT_MAT_ELEM_TYPE) inMat->at<INT_MAT_ELEM_TYPE>(i, j)/255;
 }
 
 
@@ -2642,14 +2670,14 @@ void mcvMatInt2Float(const CvMat *inMat, CvMat *outMat)
  * \param image the input iamge
  * \param line input line
  * \param line color
- * \param width line width
+ * \param cols line cols
  *
  */
-void mcvDrawLine(CvMat *image, Line line, CvScalar color, int width)
+void mcvDrawLine(cv::Mat *image, Line line, cv::Scalar color, int cols)
 {
-  cvLine(image, cvPoint((int)line.startPoint.x,(int)line.startPoint.y),
-          cvPoint((int)line.endPoint.x,(int)line.endPoint.y),
-          color, width);
+  cv::line(*image, cv::Point((int)line.startPoint.x,(int)line.startPoint.y),
+          cv::Point((int)line.endPoint.x,(int)line.endPoint.y),
+          color, cols);
 }
 
 /** This initializes the LaneDetectorinfo structure
@@ -2837,16 +2865,16 @@ double mcvGetLocalMaxSubPixel(double val1, double val2, double val3)
 {
   //build an array to hold the x-values
   double Xp[] = {1, -1, 1, 0, 0, 1, 1, 1, 1};
-  CvMat X = cvMat(3, 3, CV_64FC1, Xp);
+  cv::Mat X = cv::Mat(3, 3, CV_64FC1, Xp);
 
   //array to hold the y values
   double yp[] = {val1, val2, val3};
-  CvMat y = cvMat(3, 1, CV_64FC1, yp);
+  cv::Mat y = cv::Mat(3, 1, CV_64FC1, yp);
 
   //solve to get the coefficients
   double Ap[3];
-  CvMat A = cvMat(3, 1, CV_64FC1, Ap);
-  cvSolve(&X, &y, &A, CV_SVD);
+  cv::Mat A = cv::Mat(3, 1, CV_64FC1, Ap);
+  cv::solve(X, y, A, cv::DECOMP_SVD);
 
   //get the local max
   double max;
@@ -2864,12 +2892,12 @@ double mcvGetLocalMaxSubPixel(double val1, double val2, double val3)
   *
  */
 //void mcvGetLinePixels(const Line &line, vector<int> &x, vector<int> &y)
-CvMat * mcvGetLinePixels(const Line &line)
+cv::Mat * mcvGetLinePixels(const Line &line)
 {
   //get two end points
-  CvPoint start;
+  cv::Point start;
   start.x  = int(line.startPoint.x); start.y = int(line.startPoint.y);
-  CvPoint end;
+  cv::Point end;
   end.x = int(line.endPoint.x); end.y = int(line.endPoint.y);
 
   //get deltas
@@ -2897,7 +2925,7 @@ CvMat * mcvGetLinePixels(const Line &line)
   if(start.x>end.x)
   {
     //swap the two points
-    CvPoint t = start;
+    cv::Point t = start;
     start = end;
     end = t;
     //we swapped
@@ -2922,7 +2950,7 @@ CvMat * mcvGetLinePixels(const Line &line)
   }
 
   //create the return matrix
-  CvMat *pixels = cvCreateMat(end.x-start.x+1, 2, CV_32SC1);
+  cv::Mat *pixels = new cv::Mat(end.x-start.x+1, 2, CV_32SC1);
 
   //loop
   int i, j;
@@ -2937,7 +2965,7 @@ CvMat * mcvGetLinePixels(const Line &line)
   }
   else
   {
-    k = pixels->height-1;
+    k = pixels->rows-1;
     kupdate = -1;
   }
 
@@ -2946,15 +2974,15 @@ CvMat * mcvGetLinePixels(const Line &line)
     //put the new point
     if(steep)
     {
-      CV_MAT_ELEM(*pixels, int, k, 0) = j;
-      CV_MAT_ELEM(*pixels, int, k, 1) = i;
+      pixels->at<int>(k, 0) = j;
+      pixels->at<int>(k, 1) = i;
       // 	    x.push_back(j);
       // 	    y.push_back(i);
     }
     else
     {
-      CV_MAT_ELEM(*pixels, int, k, 0) = i;
-      CV_MAT_ELEM(*pixels, int, k, 1) = j;
+      pixels->at<int>(k, 0) = i;
+      pixels->at<int>(k, 1) = j;
       // 	    x.push_back(i);
       // 	    y.push_back(j);
     }
@@ -2982,14 +3010,14 @@ CvMat * mcvGetLinePixels(const Line &line)
  * \param outLine the output line
  *
  */
-void mcvGetLineExtent(const CvMat *im, const Line &inLine, Line &outLine)
+void mcvGetLineExtent(const cv::Mat *im, const Line &inLine, Line &outLine)
 {
   //first clip the input line to the image coordinates
   Line line = inLine;
-  mcvIntersectLineWithBB(&inLine, cvSize(im->width-1, im->height-1), &line);
+  mcvIntersectLineWithBB(&inLine, cv::Size(im->cols-1, im->rows-1), &line);
 
   //then get the pixel values of the line in the image
-  CvMat *pixels; //vector<int> x, y;
+  cv::Mat *pixels; //vector<int> x, y;
   pixels = mcvGetLinePixels(line); //, x, y);
 
   //check which way to shift the line to get multiple readings
@@ -3008,45 +3036,45 @@ void mcvGetLineExtent(const CvMat *im, const Line &inLine, Line &outLine)
   vector<int> endLocs;
   int endLoc;
   int startLoc;
-  CvMat *pix = cvCreateMat(1, im->width, FLOAT_MAT_TYPE);
-  CvMat *rstep = cvCreateMat(pix->height, pix->width, FLOAT_MAT_TYPE);
-  CvMat *fstep = cvCreateMat(pix->height, pix->width, FLOAT_MAT_TYPE);
+  cv::Mat *pix = new cv::Mat(1, im->cols, FLOAT_MAT_TYPE);
+  cv::Mat *rstep = new cv::Mat(pix->rows, pix->cols, FLOAT_MAT_TYPE);
+  cv::Mat *fstep = new cv::Mat(pix->rows, pix->cols, FLOAT_MAT_TYPE);
   for (int c=0; c<numChanges; c++)
   {
     //get the pixels
     //for(int i=0; i<(int)x.size(); i++)
-    for(int i=0; i<pixels->height; i++)
+    for(int i=0; i<pixels->rows; i++)
     {
-      CV_MAT_ELEM(*pix, FLOAT_MAT_ELEM_TYPE, 0, i) =
-      CV_MAT_ELEM(*im, FLOAT_MAT_ELEM_TYPE,
+      pix->at<FLOAT_MAT_ELEM_TYPE>(0, i) =
+      im->at<FLOAT_MAT_ELEM_TYPE>(
                   changey ?
-                  min(max(CV_MAT_ELEM(*pixels, int, i, 1)+
-                  changes[c],0),im->height-1) :
-                  CV_MAT_ELEM(*pixels, int, i, 1),
-                  changey ? CV_MAT_ELEM(*pixels, int, i, 0) :
-                  min(max(CV_MAT_ELEM(*pixels, int, i, 0)+
-                  changes[c],0),im->width-1));
-                  // 			    changey ? min(max(y[i]+changes[c],0),im->height-1) : y[i],
-                  // 			    changey ? x[i] : min(max(x[i]+changes[c],0),im->width-1));
+                  min(max(pixels->at<int>(i, 1)+
+                  changes[c],0),im->rows-1) :
+                  pixels->at<int>(i, 1),
+                  changey ? pixels->at<int>(i, 0) :
+                  min(max(pixels->at<int>(i, 0)+
+                  changes[c],0),im->cols-1));
+                  // 			    changey ? min(max(y[i]+changes[c],0),im->rows-1) : y[i],
+                  // 			    changey ? x[i] : min(max(x[i]+changes[c],0),im->cols-1));
     }
     //remove the mean
-    CvScalar mean = cvAvg(pix);
-    cvSubS(pix, mean, pix);
+    cv::Scalar mean = cv::mean(*pix);
+    *pix = *pix - mean;
 
     //now convolve with rising step to get start point
     FLOAT_MAT_ELEM_TYPE stepp[] = {-0.3000, -0.2, -0.1, 0, 0, 0.1, 0.2, 0.3, 0.4};
     // {-0.6, -0.4, -0.2, 0.2, 0.4, 0.6};
     int stepsize = 9;
     //{-0.2, -0.4, -0.2, 0, 0, 0.2, 0.4, 0.2}; //{-.75, -.5, .5, .75};
-    CvMat step = cvMat(1, stepsize, FLOAT_MAT_TYPE, stepp);
+    cv::Mat step = cv::Mat(1, stepsize, FLOAT_MAT_TYPE, stepp);
     //	  SHOW_MAT(&step,"step");
     //smooth
     //	  FLOAT_MAT_ELEM_TYPE smoothp[] = {.25, .5, .25};
-    //CvMat smooth = cvMat(1, 3, FLOAT_MAT_TYPE, smoothp);
-    //cvFilter2D(&step, &step, &smooth);
+    //cv::Mat smooth = cv::Mat(1, 3, FLOAT_MAT_TYPE, smoothp);
+    //cv::filter2D(step, step, -1, smooth);
     //SHOW_MAT(&step,"smoothed step");
     //convolve
-    cvFilter2D(pix, rstep, &step);
+    cv::filter2D(*pix, *rstep, -1, step);
     //get local max
     //     vector<double> localMax;
     //     vector<int> localMaxLoc;
@@ -3059,22 +3087,22 @@ void mcvGetLineExtent(const CvMat *im, const Line &inLine, Line &outLine)
       startLoc = startLocs[c-1];
 
     //convolve with falling step to get end point
-    //cvFlip(&step, NULL, 1);
+    //cv::flip(&step, nullptr, 1);
     //convolve
-    //cvFilter2D(pix, fstep, &step);
+    //cv::filter2D(*pix, *fstep, -1, step);
     //get local max
     //     localMax.clear();
     //     localMaxLoc.clear();
     //     mcvGetVectorLocalMax(fstep, localMax, localMaxLoc);
     //     int endLoc = localMaxLoc[0];
     //take the negative
-    cvConvertScale(rstep, fstep, -1);
+    rstep->convertTo(*fstep, -1);
     mcvGetVectorMax(fstep, &max, &endLoc, 0);
     //check if zero
     if(max==0)
       endLoc = endLocs[c-1];
     if(endLoc<=startLoc)
-      endLoc = im->width-1;
+      endLoc = im->cols-1;
 
     //put into vectors
     startLocs.push_back(startLoc);
@@ -3089,18 +3117,18 @@ void mcvGetLineExtent(const CvMat *im, const Line &inLine, Line &outLine)
   //for (int i=0; i<(int)endLocs.size(); i++) cout << endLocs[i] << "  ";
 
   //get the end-point
-  outLine.startPoint.x = CV_MAT_ELEM(*pixels, int, startLoc, 0);
-  outLine.startPoint.y = CV_MAT_ELEM(*pixels, int, startLoc, 1);
-  outLine.endPoint.x = CV_MAT_ELEM(*pixels, int, endLoc, 0);
-  outLine.endPoint.y = CV_MAT_ELEM(*pixels, int, endLoc, 1);
+  outLine.startPoint.x = pixels->at<int>(startLoc, 0);
+  outLine.startPoint.y = pixels->at<int>(startLoc, 1);
+  outLine.endPoint.x = pixels->at<int>(endLoc, 0);
+  outLine.endPoint.y = pixels->at<int>(endLoc, 1);
   //     outLine.startPoint.x = x[startLoc]; outLine.startPoint.y = y[startLoc];
   //     outLine.endPoint.x = x[endLoc]; outLine.endPoint.y = y[endLoc];
 
   //clear
-  cvReleaseMat(&pix);
-  cvReleaseMat(&rstep);
-  cvReleaseMat(&fstep);
-  cvReleaseMat(&pixels);
+  delete pix;
+  delete rstep;
+  delete fstep;
+  delete pixels;
   //     localMax.clear();
   //     localMaxLoc.clear();
   startLocs.clear();
@@ -3170,48 +3198,46 @@ void mcvLineXY2RTheta(const Line &line, float &r, float &theta)
  *    a*x+b*y+c=0
  *
  */
-void mcvFitRobustLine(const CvMat *points, float *lineRTheta,
+void mcvFitRobustLine(const cv::Mat *points, float *lineRTheta,
                       float *lineAbc)
 {
-  // check number of points
-  if (points->cols < 2) 
-  {
-    return;
-  }
-    
   //clone the points
-  CvMat *cpoints = cvCloneMat(points);
+  cv::Mat *cpoints  = new cv::Mat();
+*cpoints  = points->clone();
   //get mean of the points and subtract from the original points
   float meanX=0, meanY=0;
-  CvScalar mean;
-  CvMat row1, row2;
+  cv::Scalar mean;
+  cv::Mat row1, row2;
   //get first row, compute avg and store
-  cvGetRow(cpoints, &row1, 0);
-  mean = cvAvg(&row1);
+  row1 = cpoints->row(0);
+  mean = cv::mean(row1);
   meanX = (float) mean.val[0];
-  cvSubS(&row1, mean, &row1);
+  row1 = row1 - mean;
   //same for second row
-  cvGetRow(cpoints, &row2, 1);
-  mean = cvAvg(&row2);
+  row2 = cpoints->row(1);
+  mean = cv::mean(row2);
   meanY = (float) mean.val[0];
-  cvSubS(&row2, mean, &row2);
+  row2 = row2 - mean;
 
   //compute the SVD for the centered points array
-  CvMat *W = cvCreateMat(2, 1, CV_32FC1);
-  CvMat *V = cvCreateMat(2, 2, CV_32FC1);
-  //    CvMat *V = cvCreateMat(2, 2, CV_32fC1);
-  CvMat *cpointst = cvCreateMat(cpoints->cols, cpoints->rows, CV_32FC1);
-
-  cvTranspose(cpoints, cpointst);
-  cvSVD(cpointst, W, 0, V, CV_SVD_V_T);
-  cvTranspose(V, V);
-  cvReleaseMat(&cpointst);
+  //cv::Mat *W = new cv::Mat(2, 1, CV_32FC1);
+  //cv::Mat *V = new cv::Mat(2, 2, CV_32FC1);
+  //    cv::Mat *V = new cv::Mat(2, 2, CV_32fC1);
+  cv::Mat *cpointst = new cv::Mat(cpoints->cols, cpoints->rows, CV_32FC1);
+  int m = cpointst->rows, n = cpointst->cols, nm = std::min(m, n);
+  cv::Mat *W = new cv::Mat(nm, 1, CV_32FC1);
+  cv::Mat U = cv::Mat();
+  cv::Mat *V = new cv::Mat(2, 2, CV_32FC1);
+  *cpointst = cpoints->t();
+  cv::SVD::compute(*cpointst, *W, U, *V);
+  *V = V->t();
+  delete cpointst;
 
   //get the [a,b] which is the second column corresponding to
   //smaller singular value
   float a, b, c;
-  a = CV_MAT_ELEM(*V, float, 0, 1);
-  b = CV_MAT_ELEM(*V, float, 1, 1);
+  a = V->at<float>(0, 1);
+  b = V->at<float>(1, 1);
 
   //c = -meanX*a-meanY*b
   c = -(meanX * a + meanY * b);
@@ -3245,9 +3271,9 @@ void mcvFitRobustLine(const CvMat *points, float *lineRTheta,
     lineAbc[2] = c;
   }
   //clear
-  cvReleaseMat(&cpoints);
-  cvReleaseMat(&W);
-  cvReleaseMat(&V);
+  delete cpoints;
+  delete W;
+  delete V;
 }
 
 
@@ -3269,14 +3295,14 @@ void mcvFitRobustLine(const CvMat *points, float *lineRTheta,
  * \param lineScore the score of the line detected
  *
  */
-void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
+void mcvFitRansacLine(const cv::Mat *image, int numSamples, int numIterations,
                       float threshold, float scoreThreshold, int numGoodFit,
                       bool getEndPoints, LineType lineType,
                       Line *lineXY, float *lineRTheta, float *lineScore)
 {
 
   //get the points with non-zero pixels
-  CvMat *points;
+  cv::Mat *points;
   points = mcvGetNonZeroPoints(image,true);
   if (!points)
     return;
@@ -3284,25 +3310,26 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
   if (numSamples>points->cols)
     numSamples = points->cols;
   //subtract half
-  cvAddS(points, cvRealScalar(0.5), points);
+  *points = *points + 0.5;
 
   //normalize pixels values to get weights of each non-zero point
   //get third row of points containing the pixel values
-  CvMat w;
-  cvGetRow(points, &w, 2);
+  cv::Mat w;
+  w = points->row(2);
   //normalize it
-  CvMat *weights = cvCloneMat(&w);
-  cvNormalize(weights, weights, 1, 0, CV_L1);
+  cv::Mat *weights  = new cv::Mat();
+  *weights  = w.clone();
+  cv::normalize(*weights, *weights, 1, 0, cv::NORM_L1);
   //get cumulative    sum
   mcvCumSum(weights, weights);
 
   //random number generator
-  CvRNG rng = cvRNG(0xffffffff);
+  cv::RNG rng = cv::RNG(0xffffffff);
   //matrix to hold random sample
-  CvMat *randInd = cvCreateMat(numSamples, 1, CV_32SC1);
-  CvMat *samplePoints = cvCreateMat(2, numSamples, CV_32FC1);
+  cv::Mat *randInd = new cv::Mat(numSamples, 1, CV_32SC1);
+  cv::Mat *samplePoints = new cv::Mat(2, numSamples, CV_32FC1);
   //flag for points currently included in the set
-  CvMat *pointIn = cvCreateMat(1, points->cols, CV_8SC1);
+  cv::Mat *pointIn = new cv::Mat(1, points->cols, CV_8SC1);
   //returned lines
   float curLineRTheta[2], curLineAbc[3];
   float bestLineRTheta[2]={-1.f,0.f}, bestLineAbc[3];
@@ -3314,27 +3341,27 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
   //int mini, maxi;
   float minc=1e5f, maxc=-1e5f, mind, maxd;
   float x, y, c=0.;
-  CvPoint2D32f minp={-1., -1.}, maxp={-1., -1.};
+  cv::Point2f minp={-1., -1.}, maxp={-1., -1.};
   //outer loop
   for (int i=0; i<numIterations; i++)
   {
     //set flag to zero
-    //cvSet(pointIn, cvRealScalar(0));
-    cvSetZero(pointIn);
+    //pointIn->setTo(0);
+    pointIn->setTo(0);
     //get random sample from the points
-    #warning "Using weighted sampling for Ransac Line"
-    // 	cvRandArr(&rng, randInd, CV_RAND_UNI, cvRealScalar(0), cvRealScalar(points->cols));
+    //#warning "Using weighted sampling for Ransac Line"
+    // 	cv::randArr(&rng, randInd, CV_RAND_UNI, 0, points->cols);
     mcvSampleWeighted(weights, numSamples, randInd, &rng);
 
     for (int j=0; j<numSamples; j++)
     {
       //flag it as included
-      CV_MAT_ELEM(*pointIn, char, 0, CV_MAT_ELEM(*randInd, int, j, 0)) = 1;
+      pointIn->at<char>(0, randInd->at<int>(j, 0)) = 1;
       //put point
-      CV_MAT_ELEM(*samplePoints, float, 0, j) =
-      CV_MAT_ELEM(*points, float, 0, CV_MAT_ELEM(*randInd, int, j, 0));
-      CV_MAT_ELEM(*samplePoints, float, 1, j) =
-      CV_MAT_ELEM(*points, float, 1, CV_MAT_ELEM(*randInd, int, j, 0));
+      samplePoints->at<float>(0, j) =
+      points->at<float>(0, randInd->at<int>(j, 0));
+      samplePoints->at<float>(1, j) =
+      points->at<float>(1, randInd->at<int>(j, 0));
     }
 
     //fit the line
@@ -3345,8 +3372,8 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
     for (int j=0; getEndPoints && j<numSamples; ++j)
     {
       //get x & y
-      x = CV_MAT_ELEM(*samplePoints, float, 0, j);
-      y = CV_MAT_ELEM(*samplePoints, float, 1, j);
+      x = samplePoints->at<float>(0, j);
+      y = samplePoints->at<float>(1, j);
 
       //get the coordinate to work on
       if (lineType == LINE_HORIZONTAL)
@@ -3357,12 +3384,12 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
       if (c>maxc)
       {
         maxc = c;
-        maxp = cvPoint2D32f(x, y);
+        maxp = cv::Point(x, y);
       }
       if (c<minc)
       {
         minc = c;
-        minp = cvPoint2D32f(x, y);
+        minp = cv::Point(x, y);
       }
     } //for
 
@@ -3374,39 +3401,39 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
     for (int j=0; j<points->cols; j++)
     {
       // 	    //if not already inside
-      // 	    if (!CV_MAT_ELEM(*pointIn, char, 0, j))
+      // 	    if (!pointIn->at<char>(0, j))
       // 	    {
         //compute distance to line
-        dist = fabs(CV_MAT_ELEM(*points, float, 0, j) * curLineAbc[0] +
-        CV_MAT_ELEM(*points, float, 1, j) * curLineAbc[1] + curLineAbc[2]);
+        dist = fabs(points->at<float>(0, j) * curLineAbc[0] +
+        points->at<float>(1, j) * curLineAbc[1] + curLineAbc[2]);
         //check distance
         if (dist<=threshold)
         {
           //add this point
-          CV_MAT_ELEM(*pointIn, char, 0, j) = 1;
+          pointIn->at<char>(0, j) = 1;
           //update score
-          score += cvGetReal2D(image, (int)(CV_MAT_ELEM(*points, float, 1, j)-.5),
-                               (int)(CV_MAT_ELEM(*points, float, 0, j)-.5));
+          score += image->at<float>((int)(points->at<float>(1, j)-.5),
+                               (int)(points->at<float>(0, j)-.5));
         }
         // 	    }
     }
 
     //check the number of close points and whether to consider this a good fit
-    int numClose = cvCountNonZero(pointIn);
+    int numClose = cv::countNonZero(*pointIn);
     //cout << "numClose=" << numClose << "\n";
     if (numClose >= numGoodFit)
     {
         //get the points included to fit this line
-        CvMat *fitPoints = cvCreateMat(2, numClose, CV_32FC1);
+        cv::Mat *fitPoints = new cv::Mat(2, numClose, CV_32FC1);
         int k=0;
         //loop on points and copy points included
         for (int j=0; j<points->cols; j++)
-      if(CV_MAT_ELEM(*pointIn, char, 0, j))
+      if(pointIn->at<char>(0, j))
       {
-          CV_MAT_ELEM(*fitPoints, float, 0, k) =
-        CV_MAT_ELEM(*points, float, 0, j);
-          CV_MAT_ELEM(*fitPoints, float, 1, k) =
-        CV_MAT_ELEM(*points, float, 1, j);
+          fitPoints->at<float>(0, k) =
+        points->at<float>(0, j);
+          fitPoints->at<float>(1, k) =
+        points->at<float>(1, j);
           k++;
 
       }
@@ -3419,12 +3446,12 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
       for (int j=0; j<fitPoints->cols; j++)
       {
         //compute distance to line
-        x = CV_MAT_ELEM(*fitPoints, float, 0, j);
-        y = CV_MAT_ELEM(*fitPoints, float, 1, j);
+        x = fitPoints->at<float>(0, j);
+        y = fitPoints->at<float>(1, j);
         float d = fabs( x * curLineAbc[0] +
         y * curLineAbc[1] +
         curLineAbc[2])
-        * cvGetReal2D(image, (int)(y-.5), (int)(x-.5));
+        * image->at<float>((int)(y-.5), (int)(x-.5));
         dist += d;
 
         // 		//check min and max coordinates to get extent
@@ -3440,13 +3467,13 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
           // 		    {
             // 			maxc = c;
             // 			maxd = d;
-            // 			maxp = cvPoint2D32f(x, y);
+            // 			maxp = cv::Point(x, y);
             // 		    }
             // 		    if (c<minc)
             // 		    {
               // 			minc = c;
               // 			mind = d;
-              // 			minp = cvPoint2D32f(x, y);
+              // 			minp = cv::Point(x, y);
               // 		    }
 
               // // 		    fprintf(stderr, "minc=%f, mind=%f, mini=%d\n", minc, mind, mini);
@@ -3484,7 +3511,7 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
       //dist /= score;
 
       //clear fitPoints
-      cvReleaseMat(&fitPoints);
+      delete fitPoints;
 
       //check if to keep the line as best
       if (score>=scoreThreshold && score>bestScore)//dist<bestDist //(numClose > bestScore)
@@ -3506,17 +3533,18 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
     if (DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
       char str[256];
       //convert image to rgb
-      CvMat* im = cvCloneMat(image);
+      cv::Mat* im  = new cv::Mat();
+* im  = image->clone();
       mcvScaleMat(image, im);
-      CvMat *imageClr = cvCreateMat(image->rows, image->cols, CV_32FC3);
-      cvCvtColor(im, imageClr, CV_GRAY2RGB);
+      cv::Mat *imageClr = new cv::Mat(image->rows, image->cols, CV_32FC3);
+      cv::cvtColor(*im, *imageClr, cv::COLOR_GRAY2RGB);
 
       Line line;
       //draw current line if there
       if (curLineRTheta[0]>0)
       {
         mcvIntersectLineRThetaWithBB(curLineRTheta[0], curLineRTheta[1],
-                                    cvSize(image->cols, image->rows), &line);
+                                    cv::Size(image->cols, image->rows), &line);
         mcvDrawLine(imageClr, line, CV_RGB(1,0,0), 1);
         if (getEndPoints)
           mcvDrawLine(imageClr, curEndPointLine, CV_RGB(0,1,0), 1);
@@ -3526,19 +3554,19 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
       if (bestLineRTheta[0]>0)
       {
         mcvIntersectLineRThetaWithBB(bestLineRTheta[0], bestLineRTheta[1],
-                                    cvSize(image->cols, image->rows), &line);
+                                    cv::Size(image->cols, image->rows), &line);
         mcvDrawLine(imageClr, line, CV_RGB(0,0,1), 1);
         if (getEndPoints)
           mcvDrawLine(imageClr, bestEndPointLine, CV_RGB(1,1,0), 1);
       }
       sprintf(str, "scor=%.2f, best=%.2f", score, bestScore);
-      mcvDrawText(imageClr, str, cvPoint(30, 30), .25, CV_RGB(255,255,255));
+      mcvDrawText(imageClr, str, cv::Point(30, 30), .25, CV_RGB(255,255,255));
 
       SHOW_IMAGE(imageClr, "Fit Ransac Line", 10);
 
       //clear
-      cvReleaseMat(&im);
-      cvReleaseMat(&imageClr);
+      delete im;
+      delete imageClr;
     }//#endif
   } // for i
 
@@ -3554,17 +3582,18 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
       *lineXY = bestEndPointLine;
     else
       mcvIntersectLineRThetaWithBB(lineRTheta[0], lineRTheta[1],
-                                   cvSize(image->cols-1, image->rows-1),
+                                   cv::Size(image->cols-1, image->rows-1),
                                    lineXY);
   }
   if (lineScore)
     *lineScore = bestScore;
 
   //clear
-  cvReleaseMat(&points);
-  cvReleaseMat(&samplePoints);
-  cvReleaseMat(&randInd);
-  cvReleaseMat(&pointIn);
+  delete points;
+  delete samplePoints;
+  delete randInd;
+  delete pointIn;
+  delete weights;
 }
 
 
@@ -3578,7 +3607,7 @@ void mcvFitRansacLine(const CvMat *image, int numSamples, int numIterations,
  * \param floatMat whether to return floating points or integers for
  *    the outMat
  */
-CvMat* mcvGetNonZeroPoints(const CvMat *inMat, bool floatMat)
+cv::Mat* mcvGetNonZeroPoints(const cv::Mat *inMat, bool floatMat)
 {
 
 
@@ -3586,50 +3615,50 @@ CvMat* mcvGetNonZeroPoints(const CvMat *inMat, bool floatMat)
      /*loop and allocate the points*/ \
      for (int i=0; i<inMat->rows; i++) \
  	for (int j=0; j<inMat->cols; j++) \
- 	    if (CV_MAT_ELEM(*inMat, inMatType, i, j)) \
+ 	    if (inMat->at<inMatType>(i, j)) \
  	    { \
- 		CV_MAT_ELEM(*outMat, outMatType, 0, k) = j; \
- 		CV_MAT_ELEM(*outMat, outMatType, 1, k) = i; \
-                CV_MAT_ELEM(*outMat, outMatType, 2, k) = \
-                  (outMatType) CV_MAT_ELEM(*inMat, inMatType, i, j); \
+ 		outMat->at<outMatType>(0, k) = j; \
+ 		outMat->at<outMatType>(1, k) = i; \
+                outMat->at<outMatType>(2, k) = \
+                  (outMatType) inMat->at<inMatType>(i, j); \
                 k++; \
  	    } \
 
   int k=0;
 
   //get number of non-zero points
-  int numnz = cvCountNonZero(inMat);
+  int numnz = cv::countNonZero(*inMat);
 
   //allocate the point array and get the points
-  CvMat* outMat;
+  cv::Mat* outMat;
   if (numnz)
   {
     if (floatMat)
-      outMat = cvCreateMat(3, numnz, CV_32FC1);
+      outMat = new cv::Mat(3, numnz, CV_32FC1);
     else
-      outMat = cvCreateMat(3, numnz, CV_32SC1);
+      outMat = new cv::Mat(3, numnz, CV_32SC1);
   }
   else
-    return NULL;
+    return nullptr;
 
   //check type
-  if (CV_MAT_TYPE(inMat->type)==FLOAT_MAT_TYPE &&
-    CV_MAT_TYPE(outMat->type)==FLOAT_MAT_TYPE)
+  if (CV_MAT_TYPE(inMat->type())==FLOAT_MAT_TYPE &&
+    CV_MAT_TYPE(outMat->type())==FLOAT_MAT_TYPE)
   {
     MCV_GET_NZ_POINTS(FLOAT_MAT_ELEM_TYPE, FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inMat->type)==FLOAT_MAT_TYPE &&
-    CV_MAT_TYPE(outMat->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inMat->type())==FLOAT_MAT_TYPE &&
+    CV_MAT_TYPE(outMat->type())==INT_MAT_TYPE)
   {
     MCV_GET_NZ_POINTS(FLOAT_MAT_ELEM_TYPE, INT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inMat->type)==INT_MAT_TYPE &&
-    CV_MAT_TYPE(outMat->type)==FLOAT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inMat->type())==INT_MAT_TYPE &&
+    CV_MAT_TYPE(outMat->type())==FLOAT_MAT_TYPE)
   {
     MCV_GET_NZ_POINTS(INT_MAT_ELEM_TYPE, FLOAT_MAT_ELEM_TYPE)
   }
-  else if (CV_MAT_TYPE(inMat->type)==INT_MAT_TYPE &&
-    CV_MAT_TYPE(outMat->type)==INT_MAT_TYPE)
+  else if (CV_MAT_TYPE(inMat->type())==INT_MAT_TYPE &&
+    CV_MAT_TYPE(outMat->type())==INT_MAT_TYPE)
   {
     MCV_GET_NZ_POINTS(INT_MAT_ELEM_TYPE, INT_MAT_ELEM_TYPE)
   }
@@ -3652,7 +3681,7 @@ CvMat* mcvGetNonZeroPoints(const CvMat *inMat, bool floatMat)
  * \param bbox the bounding box to intersect with
  */
 void mcvGroupLines(vector<Line> &lines, vector<float> &lineScores,
-                   float groupThreshold, CvSize bbox)
+                   float groupThreshold, cv::Size bbox)
 {
 
   //convert the lines into r-theta parameters
@@ -3740,15 +3769,15 @@ void mcvGroupSplines(vector<Spline> &splines, vector<float> &scores)
   //debug
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
 
-    CvMat* im = cvCreateMat(240, 320, CV_8UC3);
-    cvSet(im, cvRealScalar(0.));
+    cv::Mat* im = new cv::Mat(240, 320, CV_8UC3);
+    im->setTo(0.);
     //draw splines
     for (unsigned int i=0; i<splines.size(); i++)
       mcvDrawSpline(im, splines[i], CV_RGB(255, 0, 0), 1);
 
     SHOW_IMAGE(im, "Splines Before grouping", 10);
     //clear
-    cvReleaseMat(&im);
+    delete im;
 
   }//#endif
 
@@ -3792,15 +3821,15 @@ void mcvGroupSplines(vector<Spline> &splines, vector<float> &scores)
   //debug
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
 
-    CvMat* im = cvCreateMat(240, 320, CV_8UC3);
-    cvSet(im, cvRealScalar(0.));
+    cv::Mat* im = new cv::Mat(240, 320, CV_8UC3);
+    im->setTo(0.);
     //draw splines
     for (unsigned int i=0; i<splines.size(); i++)
       mcvDrawSpline(im, splines[i], CV_RGB(255, 0, 0), 1);
 
     SHOW_IMAGE(im, "Splines After grouping", 10);
     //clear
-    cvReleaseMat(&im);
+    delete im;
 
   }//#endif
 
@@ -3813,7 +3842,7 @@ void mcvGroupSplines(vector<Spline> &splines, vector<float> &scores)
  * \param type the type of lines (LINE_HORIZONTAL or LINE_VERTICAL)
  * \param groupThreshold the threshold used for grouping (ratio of overlap)
  */
-void mcvGroupBoundingBoxes(vector<CvRect> &boxes, LineType type,
+void mcvGroupBoundingBoxes(vector<cv::Rect> &boxes, LineType type,
                            float groupThreshold)
 {
   bool cont = true;
@@ -3821,7 +3850,7 @@ void mcvGroupBoundingBoxes(vector<CvRect> &boxes, LineType type,
   //Todo: check if to intersect with bounding box or not
 
   //save boxes
-  //vector<CvRect> tboxes = boxes;
+  //vector<cv::Rect> tboxes = boxes;
 
   //loop to get the largest overlap (according to type) and check
   //the overlap ratio
@@ -3830,7 +3859,7 @@ void mcvGroupBoundingBoxes(vector<CvRect> &boxes, LineType type,
   {
     maxOverlap =  overlap = -1e5;
     //loop on lines and get max overlap
-    vector<CvRect>::iterator i, j, maxI, maxJ;
+    vector<cv::Rect>::iterator i, j, maxI, maxJ;
     for(i = boxes.begin(); i != boxes.end(); i++)
     {
       for(j = i+1; j != boxes.end(); j++)
@@ -3838,7 +3867,7 @@ void mcvGroupBoundingBoxes(vector<CvRect> &boxes, LineType type,
         switch(type)
         {
           case LINE_VERTICAL:
-            //get one with smallest x, and compute the x2 - x1 / width of smallest
+            //get one with smallest x, and compute the x2 - x1 / cols of smallest
             //i.e. (x12 - x21) / (x22 - x21)
             overlap = i->x < j->x  ?
             (i->x + i->width - j->x) / (float)j->width :
@@ -3878,7 +3907,7 @@ void mcvGroupBoundingBoxes(vector<CvRect> &boxes, LineType type,
     if (maxOverlap >= groupThreshold)
     {
       //combine the two boxes
-      *maxI  = cvRect(min((*maxI).x, (*maxJ).x),
+      *maxI  = cv::Rect(min((*maxI).x, (*maxJ).x),
                       min((*maxI).y, (*maxJ).y),
                       max((*maxI).width, (*maxJ).width),
                       max((*maxI).height, (*maxJ).height));
@@ -3907,34 +3936,35 @@ void mcvGroupBoundingBoxes(vector<CvRect> &boxes, LineType type,
  * \param bbox the bounding box to intersect with
  * \param lineType the line type to work on (horizontal or vertical)
  */
-void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
+void mcvGetRansacLines(const cv::Mat *im, vector<Line> &lines,
                        vector<float> &lineScores, LaneDetectorConf *lineConf,
                        LineType lineType)
 {
   //check if to binarize image
-  CvMat *image = cvCloneMat(im);
+  cv::Mat *image  = new cv::Mat();
+*image  = im->clone();
   if (lineConf->ransacLineBinarize)
     mcvBinarizeImage(image);
 
-  int width = image->width-1;
-  int height = image->height-1;
+  int cols = image->cols-1;
+  int rows = image->rows-1;
   //try grouping the lines into regions
   //float groupThreshold = 15;
   mcvGroupLines(lines, lineScores, lineConf->groupThreshold,
-                cvSize(width, height));
+                cv::Size(cols, rows));
 
   //group bounding boxes of lines
   float overlapThreshold = lineConf->overlapThreshold; //0.5; //.8;
-  vector<CvRect> boxes;
-  mcvGetLinesBoundingBoxes(lines, lineType, cvSize(width, height),
+  vector<cv::Rect> boxes;
+  mcvGetLinesBoundingBoxes(lines, lineType, cv::Size(cols, rows),
                            boxes);
   mcvGroupBoundingBoxes(boxes, lineType, overlapThreshold);
   //     mcvGroupLinesBoundingBoxes(lines, lineType, overlapThreshold,
-  // 			       cvSize(width, height), boxes);
+  // 			       cv::Size(cols, rows), boxes);
 
   //     //check if there're no lines, then check the whole image
   //     if (boxes.size()<1)
-  // 	boxes.push_back(cvRect(0, 0, width-1, height-1));
+  // 	boxes.push_back(cv::Rect(0, 0, cols-1, rows-1));
 
   int window = lineConf->ransacLineWindow; //15;
   vector<Line> newLines;
@@ -3943,7 +3973,7 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
   {
     // 	fprintf(stderr, "i=%d\n", i);
     //Line line = lines[i];
-    CvRect mask, box;
+    cv::Rect mask, box;
     //get box
     box = boxes[i];
     switch (lineType)
@@ -3952,11 +3982,11 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
       {
         //get extent
         //int ystart = (int)fmax(fmin(line.startPoint.y, line.endPoint.y)-window, 0);
-        //int yend = (int)fmin(fmax(line.startPoint.y, line.endPoint.y)+window, height-1);
+        //int yend = (int)fmin(fmax(line.startPoint.y, line.endPoint.y)+window, rows-1);
         int ystart = (int)fmax(box.y - window, 0);
-        int yend = (int)fmin(box.y + box.height + window, height-1);
+        int yend = (int)fmin(box.y + box.height+ window, rows-1);
         //get the mask
-        mask = cvRect(0, ystart, width, yend-ystart+1);
+        mask = cv::Rect(0, ystart, cols, yend-ystart+1);
       }
       break;
 
@@ -3964,16 +3994,17 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
       {
         //get extent of window to search in
         //int xstart = (int)fmax(fmin(line.startPoint.x, line.endPoint.x)-window, 0);
-        //int xend = (int)fmin(fmax(line.startPoint.x, line.endPoint.x)+window, width-1);
+        //int xend = (int)fmin(fmax(line.startPoint.x, line.endPoint.x)+window, cols-1);
         int xstart = (int)fmax(box.x - window, 0);
-        int xend = (int)fmin(box.x + box.width + window, width-1);
+        int xend = (int)fmin(box.x + box.height + window, cols-1);
         //get the mask
-        mask = cvRect(xstart, 0, xend-xstart+1, height);
+        mask = cv::Rect(xstart, 0, xend-xstart+1, rows);
       }
       break;
     }
     //get the subimage to work on
-    CvMat *subimage = cvCloneMat(image);
+    cv::Mat *subimage  = new cv::Mat();
+*subimage  = image->clone();
     //clear all but the mask
     mcvSetMat(subimage, mask, 0);
 
@@ -3993,7 +4024,7 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
 
     //store the line if found and make sure it's not
     //near horizontal or vertical (depending on type)
-    #warning "check this screening in ransacLines"
+    //#warning "check this screening in ransacLines"
     if (lineRTheta[0]>=0)
     {
       bool put =true;
@@ -4034,9 +4065,9 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
       }
       //convert image to rgb
       mcvScaleMat(subimage, subimage);
-      CvMat *subimageClr = cvCreateMat(subimage->rows, subimage->cols,
+      cv::Mat *subimageClr = new cv::Mat(subimage->rows, subimage->cols,
                                        CV_32FC3);
-      cvCvtColor(subimage, subimageClr, CV_GRAY2RGB);
+      cv::cvtColor(*subimage, *subimageClr, cv::COLOR_GRAY2RGB);
       //draw rectangle
       //      	    mcvDrawRectangle(subimageClr, box,
                   // 			     CV_RGB(255, 255, 0), 1);
@@ -4047,11 +4078,11 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
         mcvDrawLine(subimageClr, line, CV_RGB(1,0,0), 1);
       SHOW_IMAGE(subimageClr, str, 10);
       //clear
-      cvReleaseMat(&subimageClr);
+      delete subimageClr;
     }//#endif
 
     //clear
-    cvReleaseMat(&subimage);
+    delete subimage;
   } // for i
 
   //group lines
@@ -4060,8 +4091,8 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
     oldLines = lines;
   lines.clear();
   lineScores.clear();
-  #warning "not grouping at end of getRansacLines"
-  //mcvGroupLines(newLines, newScores, lineConf->groupThreshold, cvSize(width, height));
+  //#warning "not grouping at end of getRansacLines"
+  //mcvGroupLines(newLines, newScores, lineConf->groupThreshold, cv::Size(cols, rows));
   lines = newLines;
   lineScores = newScores;
 
@@ -4080,12 +4111,14 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
         break;
     }
     //convert image to rgb
-    CvMat* im2 = cvCloneMat(im);
+    cv::Mat* im2  = new cv::Mat();
+* im2  = im->clone();
     mcvScaleMat(im2, im2);
-    CvMat *imClr = cvCreateMat(im->rows, im->cols, CV_32FC3);
-    cvCvtColor(im2, imClr, CV_GRAY2RGB);
-    CvMat* imClr2 = cvCloneMat(imClr);
-    cvReleaseMat(&im2);
+    cv::Mat *imClr = new cv::Mat(im->rows, im->cols, CV_32FC3);
+    cv::cvtColor(*im2, *imClr, cv::COLOR_GRAY2RGB);
+    cv::Mat* imClr2  = new cv::Mat();
+* imClr2  = imClr->clone();
+    delete im2;
 
     //draw spline
     for (unsigned int j=0; j<lines.size(); j++)
@@ -4098,8 +4131,8 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
     SHOW_IMAGE(imClr2, "Input Lines", 10);
 
     //clear
-    cvReleaseMat(&imClr);
-    cvReleaseMat(&imClr2);
+    delete imClr;
+    delete imClr2;
     oldLines.clear();
   }//#endif
 
@@ -4122,60 +4155,55 @@ void mcvGetRansacLines(const CvMat *im, vector<Line> &lines,
   boxes.clear();
   newLines.clear();
   newScores.clear();
-  cvReleaseMat(&image);
+  delete image;
 }
 
 /** This function sets the matrix to a value except for the mask window passed in
  *
  * \param inMat input matrix
- * \param mask the rectangle defining the mask: (xleft, ytop, width, height)
+ * \param mask the rectangle defining the mask: (xleft, ytop, cols, rows)
  * \param val the value to put
  */
-void  mcvSetMat(CvMat *inMat, CvRect mask, double val)
+void  mcvSetMat(cv::Mat *inMat, cv::Rect mask, double val)
 {
 
-  //get x-end points of region to work on, and work on the whole image height
+  //get x-end points of region to work on, and work on the whole image rows
   //(int)fmax(fmin(line.startPoint.x, line.endPoint.x)-xwindow, 0);
   int xstart = mask.x, xend = mask.x + mask.width-1;
   //xend = (int)fmin(fmax(line.startPoint.x, line.endPoint.x), width-1);
   int ystart = mask.y, yend = mask.y + mask.height-1;
 
   //set other two windows to zero
-  CvMat maskMat;
-  CvRect rect;
+  cv::Rect rect;
   //part to the left of required region
-  rect = cvRect(0, 0, xstart-1, inMat->height);
-  if (rect.x<inMat->width && rect.y<inMat->height &&
+  rect = cv::Rect(0, 0, xstart-1, inMat->rows);
+  if (rect.x<inMat->cols && rect.y<inMat->rows &&
     rect.x>=0 && rect.y>=0 && rect.width>0 && rect.height>0)
   {
-    cvGetSubRect(inMat, &maskMat, rect);
-    cvSet(&maskMat, cvRealScalar(val));
+    (*inMat)(rect).setTo(val);
   }
   //part to the right of required region
-  rect = cvRect(xend+1, 0, inMat->width-xend-1, inMat->height);
-  if (rect.x<inMat->width && rect.y<inMat->height &&
+  rect = cv::Rect(xend+1, 0, inMat->cols-xend-1, inMat->rows);
+  if (rect.x<inMat->cols && rect.y<inMat->rows &&
     rect.x>=0 && rect.y>=0 && rect.width>0 && rect.height>0)
   {
-    cvGetSubRect(inMat, &maskMat, rect);
-    cvSet(&maskMat, cvRealScalar(val));
+    (*inMat)(rect).setTo(val);
   }
 
   //part to the top
-  rect = cvRect(xstart, 0, mask.width, ystart-1);
-  if (rect.x<inMat->width && rect.y<inMat->height &&
+  rect = cv::Rect(xstart, 0, mask.width, ystart-1);
+  if (rect.x<inMat->cols && rect.y<inMat->rows &&
     rect.x>=0 && rect.y>=0 && rect.width>0 && rect.height>0)
   {
-    cvGetSubRect(inMat, &maskMat, rect);
-    cvSet(&maskMat, cvRealScalar(val));
+    (*inMat)(rect).setTo(val);
   }
 
   //part to the bottom
-  rect = cvRect(xstart, yend+1, mask.width, inMat->height-yend-1);
-  if (rect.x<inMat->width && rect.y<inMat->height &&
+  rect = cv::Rect(xstart, yend+1, mask.width, inMat->rows-yend-1);
+  if (rect.x<inMat->cols && rect.y<inMat->rows &&
     rect.x>=0 && rect.y>=0 && rect.width>0 && rect.height>0)
   {
-    cvGetSubRect(inMat, &maskMat, rect);
-    cvSet(&maskMat, cvRealScalar(val));
+    (*inMat)(rect).setTo(val);
   }
 }
 
@@ -4187,14 +4215,15 @@ void  mcvSetMat(CvMat *inMat, CvRect mask, double val)
  * \param dim the dimension to sort on (0: x, 1:y)
  * \param dir direction of sorting (0: ascending, 1:descending)
  */
-void mcvSortPoints(const CvMat *inPoints, CvMat *outPoints,
+void mcvSortPoints(const cv::Mat *inPoints, cv::Mat *outPoints,
                    int dim, int dir)
 {
   //make a copy of the input
-  CvMat *pts = cvCloneMat(inPoints);
+  cv::Mat *pts  = new cv::Mat();
+*pts  = inPoints->clone();
 
   //clear the output
-  //cvSetZero(outPoints);
+  //outPoints->setTo(0);
 
   //make the list of sorted indices
   list<int> sorted;
@@ -4202,21 +4231,21 @@ void mcvSortPoints(const CvMat *inPoints, CvMat *outPoints,
   int i, j;
 
   //loop on elements and adjust its index
-  for (i=0; i<pts->height; i++)
+  for (i=0; i<pts->rows; i++)
   {
     //if ascending
     if (dir==0)
       for (sortedi = sorted.begin();
            sortedi != sorted.end() &&
-           (CV_MAT_ELEM(*pts, float, i, dim) >=
-           CV_MAT_ELEM(*outPoints, float, *sortedi, dim));
+           (pts->at<float>(i, dim) >=
+           outPoints->at<float>(*sortedi, dim));
            sortedi++);
     //descending
     else
       for (sortedi = sorted.begin();
            sortedi != sorted.end() &&
-           (CV_MAT_ELEM(*pts, float, i, dim) <=
-           CV_MAT_ELEM(*outPoints, float, *sortedi, dim));
+           (pts->at<float>(i, dim) <=
+           outPoints->at<float>(*sortedi, dim));
            sortedi++);
 
     //found the position, so put it into sorted
@@ -4225,12 +4254,11 @@ void mcvSortPoints(const CvMat *inPoints, CvMat *outPoints,
 
   //sorted the array, so put back
   for (i=0, sortedi=sorted.begin(); sortedi != sorted.end(); sortedi++, i++)
-    for(j=0; j<outPoints->width; j++)
-      CV_MAT_ELEM(*outPoints, float, i, j) = CV_MAT_ELEM(*pts, float,
-                                                         *sortedi, j);
+    for(j=0; j<outPoints->cols; j++)
+      outPoints->at<float>(i, j) = pts->at<float>(*sortedi, j);
 
   //clear
-  cvReleaseMat(&pts);
+  delete pts;
   sorted.clear();
 }
 
@@ -4240,7 +4268,7 @@ void mcvSortPoints(const CvMat *inPoints, CvMat *outPoints,
  * \param degree the required spline degree
  * \return spline the returned spline
  */
-Spline mcvFitBezierSpline(CvMat *points, int degree)
+Spline mcvFitBezierSpline(cv::Mat *points, int degree)
 {
 
   //set the degree
@@ -4248,7 +4276,7 @@ Spline mcvFitBezierSpline(CvMat *points, int degree)
   spline.degree = degree;
 
   //get number of points
-  int n = points->height;
+  int n = points->rows;
   //float step = 1./(n-1);
 
   //sort the pointa
@@ -4256,25 +4284,25 @@ Spline mcvFitBezierSpline(CvMat *points, int degree)
   //     SHOW_MAT(points, "Points after sorting:");
 
   //get first point and distance between points
-  CvPoint2D32f  p0 = cvPoint2D32f(CV_MAT_ELEM(*points, float, 0, 0),
-                                  CV_MAT_ELEM(*points, float, 0, 1));
+  cv::Point2f  p0 = cv::Point(points->at<float>(0, 0),
+                                  points->at<float>(0, 1));
 
   float diff = 0.f;
-  float *us = new float[points->height];
+  float *us = new float[points->rows];
   us[0] = 0;
-  for (int i=1; i<points->height; ++i)
+  for (int i=1; i<points->rows; ++i)
   {
-    float dx = CV_MAT_ELEM(*points, float, i, 0) -
-      CV_MAT_ELEM(*points, float, i-1, 0);
-    float dy = CV_MAT_ELEM(*points, float, i, 1) -
-      CV_MAT_ELEM(*points, float, i-1, 1);
-    us[i] = cvSqrt(dx*dx + dy*dy) + us[i-1];
+    float dx = points->at<float>(i, 0) -
+      points->at<float>(i-1, 0);
+    float dy = points->at<float>(i, 1) -
+      points->at<float>(i-1, 1);
+    us[i] = cv::sqrt(dx*dx + dy*dy) + us[i-1];
     // 	diff += us[i];;
   }
-  diff = us[points->height-1];
+  diff = us[points->rows-1];
 
-  //float y0 = CV_MAT_ELEM(*points, float, 0, 1);
-  //float ydiff = CV_MAT_ELEM(*points, float, points->height-1, 1) - y0;
+  //float y0 = points->at<float>(0, 1);
+  //float ydiff = points->at<float>(points->rows-1, 1) - y0;
 
   //M matrices: M2 for quadratic (degree 2) and M3 for cubic
   float M2[] = {1, -2, 1,
@@ -4286,10 +4314,10 @@ Spline mcvFitBezierSpline(CvMat *points, int degree)
                 1, 0, 0, 0};
 
   //M matrix for Bezier
-  CvMat M;
+  cv::Mat M;
 
   //Basis matrix
-  CvMat *B;
+  cv::Mat *B;
 
   //u value for points to create the basis matrix
   float u = 0.f;
@@ -4300,73 +4328,76 @@ Spline mcvFitBezierSpline(CvMat *points, int degree)
     //Quadratic spline
     case 2:
       //M matrix
-      M = cvMat(3, 3, CV_32FC1, M2);
+      M = cv::Mat(3, 3, CV_32FC1, M2);
 
       //create the basis matrix
-      B = cvCreateMat(n, 3, CV_32FC1);
-      for (int i=0; i<B->height; i++) //u+=step
+      B = new cv::Mat(n, 3, CV_32FC1);
+      for (int i=0; i<B->rows; i++) //u+=step
       {
         //get u as ratio of y-coordinate
         // 	    u  = i / ((float)n-1);
 
-        //  	    u = (CV_MAT_ELEM(*points, float, i, 1) - y0) / ydiff;
+        //  	    u = (points->at<float>(i, 1) - y0) / ydiff;
 
-        // 	    float dx = CV_MAT_ELEM(*points, float, i, 0) - p0.x;
-        // 	    float dy = CV_MAT_ELEM(*points, float, i, 1) - p0.y;
-        // 	    u = cvSqrt(dx*dx + dy*dy) / diff;
+        // 	    float dx = points->at<float>(i, 0) - p0.x;
+        // 	    float dy = points->at<float>(i, 1) - p0.y;
+        // 	    u = cv::sqrt(dx*dx + dy*dy) / diff;
         u = us[i] / diff;
 
-        CV_MAT_ELEM(*B, float, i, 2) = 1;  //1
-        CV_MAT_ELEM(*B, float, i, 1) = u;  //u
-        CV_MAT_ELEM(*B, float, i, 0) = u*u;  //u^2
+        B->at<float>(i, 2) = 1;  //1
+        B->at<float>(i, 1) = u;  //u
+        B->at<float>(i, 0) = u*u;  //u^2
       }
       break;
 
     //Cubic spline
     case 3:
       //M matrix
-      M = cvMat(4, 4, CV_32FC1, M3);
+      M = cv::Mat(4, 4, CV_32FC1, M3);
 
       //create the basis matrix
-      B = cvCreateMat(n, 4, CV_32FC1);
-      for (int i=0; i<B->height; i++) //, u+=step)
+      B = new cv::Mat(n, 4, CV_32FC1);
+      for (int i=0; i<B->rows; i++) //, u+=step)
       {
         //get u as ratio of y-coordinate
         // 	    u  = i / ((float)n-1);
 
-        //  	    u = (CV_MAT_ELEM(*points, float, i, 1) - y0) / ydiff;
+        //  	    u = (points->at<float>(i, 1) - y0) / ydiff;
 
-        // 	    float dx = CV_MAT_ELEM(*points, float, i, 0) - p0.x;
-        // 	    float dy = CV_MAT_ELEM(*points, float, i, 1) - p0.y;
-        // 	    u = cvSqrt(dx*dx + dy*dy) / diff;
+        // 	    float dx = points->at<float>(i, 0) - p0.x;
+        // 	    float dy = points->at<float>(i, 1) - p0.y;
+        // 	    u = cv::sqrt(dx*dx + dy*dy) / diff;
         u = us[i] / diff;
 
-        CV_MAT_ELEM(*B, float, i, 3) = 1;  //1
-        CV_MAT_ELEM(*B, float, i, 2) = u;  //u
-        CV_MAT_ELEM(*B, float, i, 1) = u*u;  //u^2
-        CV_MAT_ELEM(*B, float, i, 0) = u*u*u;  //u^2
+        B->at<float>(i, 3) = 1;  //1
+        B->at<float>(i, 2) = u;  //u
+        B->at<float>(i, 1) = u*u;  //u^2
+        B->at<float>(i, 0) = u*u*u;  //u^2
       }
       break;
   } // switch degree
 
   //multiply B by M
-  cvMatMul(B, &M, B);
+  *B = *B * M;;
 
 
   //return the required control points by LS
-  CvMat *sp = cvCreateMat(degree+1, 2, CV_32FC1);
-  cvSolve(B, points, sp, CV_SVD);
+  cv::Mat *sp = new cv::Mat(degree+1, 2, CV_32FC1);
+  cv::solve(*B, *points, *sp, cv::DECOMP_SVD);
 
   //     SHOW_MAT(sp, "Spline points:");
 
   //put back into spline
-  memcpy((float *)spline.points, sp->data.fl, sizeof(float)*(spline.degree+1)*2);
+//  memcpy((float *)spline.points, ((float*)sp->data), sizeof(float)*(spline.degree+1)*2);
+  for (int i = 0; i < spline.degree+1; i++) {
+      spline.points[i] = cv::Point2f(sp->at<float>(i, 0), sp->at<float>(i, 1));
+  }
   //     if(spline.points[0].x<0)
   // 	SHOW_MAT(points, "INput Points");
 
   //clear
-  cvReleaseMat(&B);
-  cvReleaseMat(&sp);
+  delete B;
+  delete sp;
   delete [] us;
 
   //return
@@ -4382,16 +4413,16 @@ Spline mcvFitBezierSpline(CvMat *points, int degree)
  * \param tangents compute tangents at the two endpoints [t0; t1]
  * \return computed points in an array Nx2 [x,y]
  */
-CvMat* mcvEvalBezierSpline(const Spline &spline, float h, CvMat *tangents)
+cv::Mat* mcvEvalBezierSpline(const Spline &spline, float h, cv::Mat *tangents)
 {
   //compute number of points to return
   int n = (int)(1./h)+1;
 
   //allocate the points
-  CvMat *points = cvCreateMat(n, 2, CV_32FC1);
+  cv::Mat *points = new cv::Mat(n, 2, CV_32FC1);
 
   //M matrices
-  CvMat M;
+  cv::Mat M;
   float M2[] = {1, -2, 1,
   -2, 2, 0,
   1, 0, 0};
@@ -4401,12 +4432,16 @@ CvMat* mcvEvalBezierSpline(const Spline &spline, float h, CvMat *tangents)
   1, 0, 0, 0};
 
   //spline points
-  CvMat *sp = cvCreateMat(spline.degree+1, 2, CV_32FC1);
-  memcpy(sp->data.fl, (float *)spline.points,
-         sizeof(float)*(spline.degree+1)*2);
+  cv::Mat *sp = new cv::Mat(spline.degree+1, 2, CV_32FC1);
+//  memcpy(((float*)sp->data), (float *)spline.points,
+//         sizeof(float)*(spline.degree+1)*2);
+  for (int i = 0; i < spline.degree+1; i++) {
+      sp->at<float>(i, 0) = spline.points[i].x;
+      sp->at<float>(i, 1) = spline.points[i].y;
+  }
 
   //abcd
-  CvMat *abcd;
+  cv::Mat *abcd;
 
   float P[2], dP[2], ddP[2], dddP[2];
   float h2 = h*h, h3 = h2*h;
@@ -4417,32 +4452,32 @@ CvMat* mcvEvalBezierSpline(const Spline &spline, float h, CvMat *tangents)
     //Quadratic
     case 2:
       //get M matrix
-      M = cvMat(3, 3, CV_32FC1, M2);
+      M = cv::Mat(3, 3, CV_32FC1, M2);
 
       //get abcd where a=row 0, b=row 1, ...
-      abcd = cvCreateMat(3, 2, CV_32FC1);
-      cvMatMul(&M, sp, abcd);
+      abcd = new cv::Mat(3, 2, CV_32FC1);
+      *abcd = M * *sp;;
 
       //P = c
-      P[0] = CV_MAT_ELEM(*abcd, float, 2, 0);
-      P[1] = CV_MAT_ELEM(*abcd, float, 2, 1);
+      P[0] = abcd->at<float>(2, 0);
+      P[1] = abcd->at<float>(2, 1);
 
       //dP = b*h+a*h^2
-      dP[0] = CV_MAT_ELEM(*abcd, float, 1, 0)*h +
-      CV_MAT_ELEM(*abcd, float, 0, 0)*h2;
-      dP[1] = CV_MAT_ELEM(*abcd, float, 1, 1)*h +
-      CV_MAT_ELEM(*abcd, float, 0, 1)*h2;
+      dP[0] = abcd->at<float>(1, 0)*h +
+      abcd->at<float>(0, 0)*h2;
+      dP[1] = abcd->at<float>(1, 1)*h +
+      abcd->at<float>(0, 1)*h2;
 
       //ddP = 2*a*h^2
-      ddP[0] = 2 * CV_MAT_ELEM(*abcd, float, 0, 0)*h2;
-      ddP[1] = 2 * CV_MAT_ELEM(*abcd, float, 0, 1)*h2;
+      ddP[0] = 2 * abcd->at<float>(0, 0)*h2;
+      ddP[1] = 2 * abcd->at<float>(0, 1)*h2;
 
       //loop and put points
       for (int i=0; i<n; i++)
       {
         //put point
-        CV_MAT_ELEM(*points, float, i, 0) = P[0];
-        CV_MAT_ELEM(*points, float, i, 1) = P[1];
+        points->at<float>(i, 0) = P[0];
+        points->at<float>(i, 1) = P[1];
 
         //update
         P[0] += dP[0]; P[1] += dP[1];
@@ -4453,55 +4488,55 @@ CvMat* mcvEvalBezierSpline(const Spline &spline, float h, CvMat *tangents)
       if (tangents)
       {
         //t0 = b
-        CV_MAT_ELEM(*tangents, float, 0, 0) =
-        CV_MAT_ELEM(*abcd, float, 1, 0);
-        CV_MAT_ELEM(*tangents, float, 0, 1) =
-        CV_MAT_ELEM(*abcd, float, 1, 1);
+        tangents->at<float>(0, 0) =
+        abcd->at<float>(1, 0);
+        tangents->at<float>(0, 1) =
+        abcd->at<float>(1, 1);
         //t1 = 2*a + b
-        CV_MAT_ELEM(*tangents, float, 1, 0) = 2 *
-        CV_MAT_ELEM(*abcd, float, 0, 0) +
-        CV_MAT_ELEM(*abcd, float, 1, 0);
-        CV_MAT_ELEM(*tangents, float, 1, 1) = 2 *
-        CV_MAT_ELEM(*abcd, float, 0, 1) +
-        CV_MAT_ELEM(*abcd, float, 1, 1);
+        tangents->at<float>(1, 0) = 2 *
+        abcd->at<float>(0, 0) +
+        abcd->at<float>(1, 0);
+        tangents->at<float>(1, 1) = 2 *
+        abcd->at<float>(0, 1) +
+        abcd->at<float>(1, 1);
       }
       break;
 
     /*Cubic*/
     case 3:
       //get M matrix
-      M = cvMat(4, 4, CV_32FC1, M3);
+      M = cv::Mat(4, 4, CV_32FC1, M3);
 
       //get abcd where a=row 0, b=row 1, ...
-      abcd = cvCreateMat(4, 2, CV_32FC1);
-      cvMatMul(&M, sp, abcd);
+      abcd = new cv::Mat(4, 2, CV_32FC1);
+      *abcd = M * *sp;;
 
       //P = d
-      P[0] = CV_MAT_ELEM(*abcd, float, 3, 0);
-      P[1] = CV_MAT_ELEM(*abcd, float, 3, 1);
+      P[0] = abcd->at<float>(3, 0);
+      P[1] = abcd->at<float>(3, 1);
 
       //dP = c*h + b*h^2+a*h^3
-      dP[0] = CV_MAT_ELEM(*abcd, float, 2, 0)*h +
-      CV_MAT_ELEM(*abcd, float, 1, 0)*h2 +
-      CV_MAT_ELEM(*abcd, float, 0, 0)*h3;
-      dP[1] = CV_MAT_ELEM(*abcd, float, 2, 1)*h +
-      CV_MAT_ELEM(*abcd, float, 1, 1)*h2 +
-      CV_MAT_ELEM(*abcd, float, 0, 1)*h3;
+      dP[0] = abcd->at<float>(2, 0)*h +
+      abcd->at<float>(1, 0)*h2 +
+      abcd->at<float>(0, 0)*h3;
+      dP[1] = abcd->at<float>(2, 1)*h +
+      abcd->at<float>(1, 1)*h2 +
+      abcd->at<float>(0, 1)*h3;
 
       //dddP = 6 * a * h3
-      dddP[0] = 6 * CV_MAT_ELEM(*abcd, float, 0, 0) * h3;
-      dddP[1] = 6 * CV_MAT_ELEM(*abcd, float, 0, 1) * h3;
+      dddP[0] = 6 * abcd->at<float>(0, 0) * h3;
+      dddP[1] = 6 * abcd->at<float>(0, 1) * h3;
 
       //ddP = 2*b*h2 + 6*a*h3
-      ddP[0] = 2 * CV_MAT_ELEM(*abcd, float, 1, 0) * h2 + dddP[0];
-      ddP[1] = 2 * CV_MAT_ELEM(*abcd, float, 1, 1) * h2 + dddP[1];
+      ddP[0] = 2 * abcd->at<float>(1, 0) * h2 + dddP[0];
+      ddP[1] = 2 * abcd->at<float>(1, 1) * h2 + dddP[1];
 
       //loop and put points
       for (int i=0; i<n; i++)
       {
         //put point
-        CV_MAT_ELEM(*points, float, i, 0) = P[0];
-        CV_MAT_ELEM(*points, float, i, 1) = P[1];
+        points->at<float>(i, 0) = P[0];
+        points->at<float>(i, 1) = P[1];
 
         //update
         P[0] += dP[0]; P[1] += dP[1];
@@ -4513,24 +4548,28 @@ CvMat* mcvEvalBezierSpline(const Spline &spline, float h, CvMat *tangents)
       if (tangents)
       {
         //t0 = c
-        CV_MAT_ELEM(*tangents, float, 0, 0) = CV_MAT_ELEM(*abcd, float, 2, 0);
-        CV_MAT_ELEM(*tangents, float, 0, 1) = CV_MAT_ELEM(*abcd, float, 2, 1);
+        tangents->at<float>(0, 0) = abcd->at<float>(2, 0);
+        tangents->at<float>(0, 1) = abcd->at<float>(2, 1);
         //t1 = 3*a + 2*b + c
-        CV_MAT_ELEM(*tangents, float, 1, 0) =
-          3 * CV_MAT_ELEM(*abcd, float, 0, 0) +
-          2 * CV_MAT_ELEM(*abcd, float, 1, 0) +
-          CV_MAT_ELEM(*abcd, float, 2, 0);
-        CV_MAT_ELEM(*tangents, float, 1, 1) =
-          3 * CV_MAT_ELEM(*abcd, float, 0, 1) +
-          2 * CV_MAT_ELEM(*abcd, float, 1, 1) +
-          CV_MAT_ELEM(*abcd, float, 2, 1);
+        tangents->at<float>(1, 0) =
+          3 * abcd->at<float>(0, 0) +
+          2 * abcd->at<float>(1, 0) +
+          abcd->at<float>(2, 0);
+        tangents->at<float>(1, 1) =
+          3 * abcd->at<float>(0, 1) +
+          2 * abcd->at<float>(1, 1) +
+          abcd->at<float>(2, 1);
       }
+      break;
+    default:
+      // avoid error when using cv::releaseMat below and degree is neither 2 or 3
+      abcd = new cv::Mat(3, 2, CV_32FC1);
       break;
   }
 
   //clear
-  cvReleaseMat(&abcd);
-  cvReleaseMat(&sp);
+  delete abcd;
+  delete sp;
 
   //return
   return points;
@@ -4545,43 +4584,43 @@ CvMat* mcvEvalBezierSpline(const Spline &spline, float h, CvMat *tangents)
  * \param box the bounding box
  * \param extendSpline whether to extend spline with straight lines or
  *          not (default false)
- * \return computed points in an array Nx2 [x,y], returns NULL if empty output
+ * \return computed points in an array Nx2 [x,y], returns nullptr if empty output
  */
-CvMat* mcvGetBezierSplinePixels(Spline &spline, float h, CvSize box,
+cv::Mat* mcvGetBezierSplinePixels(Spline &spline, float h, cv::Size box,
                                 bool extendSpline)
 {
   //get the points belonging to the spline
-  CvMat *tangents = cvCreateMat(2, 2, CV_32FC1);
-  CvMat * points = mcvEvalBezierSpline(spline, h, tangents);
+  cv::Mat *tangents = new cv::Mat(2, 2, CV_32FC1);
+  cv::Mat *points = mcvEvalBezierSpline(spline, h, tangents);
 
   //pixelize the spline
-  //CvMat *inpoints = cvCreateMat(points->height, 1, CV_8SC1);
-  //cvSet(, CvScalar value, const CvArr* mask=NULL);
+  //cv::Mat *inpoints = new cv::Mat(points->rows, 1, CV_8SC1);
+  //cv::set(, cv::Scalar value, const cv::Arr* mask=nullptr);
   list<int> inpoints;
   list<int>::iterator inpointsi;
   int lastin = -1, numin = 0;
-  for (int i=0; i<points->height; i++)
+  for (int i=0; i<points->rows; i++)
   {
     //round
-    CV_MAT_ELEM(*points, float, i, 0) = cvRound(CV_MAT_ELEM(*points, float, i, 0));
-    CV_MAT_ELEM(*points, float, i, 1) = cvRound(CV_MAT_ELEM(*points, float, i, 1));
+    points->at<float>(i, 0) = cvRound(points->at<float>(i, 0));
+    points->at<float>(i, 1) = cvRound(points->at<float>(i, 1));
 
     //check boundaries
-    if(CV_MAT_ELEM(*points, float, i, 0) >= 0 &&
-      CV_MAT_ELEM(*points, float, i, 0) < box.width &&
-      CV_MAT_ELEM(*points, float, i, 1) >= 0 &&
-      CV_MAT_ELEM(*points, float, i, 1) < box.height)
+    if(points->at<float>(i, 0) >= 0 &&
+      points->at<float>(i, 0) < box.width &&
+      points->at<float>(i, 1) >= 0 &&
+      points->at<float>(i, 1) < box.height)
     {
       //it's inside, so check if the same as last one
       if(lastin<0 ||
         (lastin>=0 &&
-        !(CV_MAT_ELEM(*points, float, lastin, 1)==
-        CV_MAT_ELEM(*points, float, i, 1) &&
-        CV_MAT_ELEM(*points, float, lastin, 0)==
-        CV_MAT_ELEM(*points, float, i, 0) )) )
+        !(points->at<float>(lastin, 1)==
+        points->at<float>(i, 1) &&
+        points->at<float>(lastin, 0)==
+        points->at<float>(i, 0) )) )
       {
         //put inside
-        //CV_MAT_ELEM(*inpoints, char, i, 0) = 1;
+        //inpoints->at<char>(i, 0) = 1;
         inpoints.push_back(i);
         lastin = i;
         numin++;
@@ -4590,7 +4629,7 @@ CvMat* mcvGetBezierSplinePixels(Spline &spline, float h, CvSize box,
   }
 
   //check if to extend the spline with lines
-  CvMat *pixelst0, *pixelst1;
+  cv::Mat *pixelst0, *pixelst1;
   if (extendSpline)
   {
     //get first point inside
@@ -4598,41 +4637,41 @@ CvMat* mcvGetBezierSplinePixels(Spline &spline, float h, CvSize box,
     //extend from the starting point by going backwards along the tangent
     //line from that point to the start of spline
     Line line;
-    line.startPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, p0, 0) - 10 *
-                                   CV_MAT_ELEM(*tangents, float, 0, 0),
-                                   CV_MAT_ELEM(*points, float, p0, 1) - 10 *
-                                   CV_MAT_ELEM(*tangents, float, 0, 1));
-    line.endPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, p0, 0),
-                                 CV_MAT_ELEM(*points, float, p0, 1));
+    line.startPoint = cv::Point(points->at<float>(p0, 0) - 10 *
+                                   tangents->at<float>(0, 0),
+                                   points->at<float>(p0, 1) - 10 *
+                                   tangents->at<float>(0, 1));
+    line.endPoint = cv::Point(points->at<float>(p0, 0),
+                                 points->at<float>(p0, 1));
     //intersect the line with the bounding box
-    mcvIntersectLineWithBB(&line, cvSize(box.width-1, box.height-1), &line);
+    mcvIntersectLineWithBB(&line, cv::Size(box.width-1, box.height-1), &line);
     //get line pixels
     pixelst0 = mcvGetLinePixels(line);
-    numin += pixelst0->height;
+    numin += pixelst0->rows;
 
     //get last point inside
     int p1 = inpoints.back();
     //extend from end of spline along tangent
-    line.endPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, p1, 0) + 10 *
-                                 CV_MAT_ELEM(*tangents, float, 1, 0),
-                                 CV_MAT_ELEM(*points, float, p1, 1) + 10 *
-                                 CV_MAT_ELEM(*tangents, float, 1, 1));
-    line.startPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, p1, 0),
-                                   CV_MAT_ELEM(*points, float, p1, 1));
+    line.endPoint = cv::Point(points->at<float>(p1, 0) + 10 *
+                                 tangents->at<float>(1, 0),
+                                 points->at<float>(p1, 1) + 10 *
+                                 tangents->at<float>(1, 1));
+    line.startPoint = cv::Point(points->at<float>(p1, 0),
+                                   points->at<float>(p1, 1));
     //intersect the line with the bounding box
-    mcvIntersectLineWithBB(&line, cvSize(box.width-1, box.height-1), &line);
+    mcvIntersectLineWithBB(&line, cv::Size(box.width-1, box.height-1), &line);
     //get line pixels
     pixelst1 = mcvGetLinePixels(line);
-    numin += pixelst1->height;
+    numin += pixelst1->rows;
   }
 
   //put the results in another matrix
-  CvMat *rpoints;
+  cv::Mat *rpoints;
   if (numin>0)
-    rpoints = cvCreateMat(numin, 2, CV_32SC1);
+    rpoints = new cv::Mat(numin, 2, CV_32SC1);
   else
   {
-    return NULL;
+    return nullptr;
   }
 
 
@@ -4640,37 +4679,38 @@ CvMat* mcvGetBezierSplinePixels(Spline &spline, float h, CvSize box,
   if(extendSpline)
   {
     //copy
-    memcpy(cvPtr2D(rpoints, 0, 0), pixelst0->data.fl,
-           sizeof(float)*2*pixelst0->height);
+//    memcpy(rpoints->ptr(0, 0), ((float*)pixelst0->data),
+//           sizeof(float)*2*pixelst0->rows);
+    pixelst0->copyTo(rpoints->rowRange(0, pixelst0->rows));
   }
 
   //put spline pixels
-  int ri = extendSpline ? pixelst0->height : 0;
+  int ri = extendSpline ? pixelst0->rows : 0;
   for (inpointsi=inpoints.begin();
   inpointsi!=inpoints.end(); ri++, inpointsi++)
   {
-    CV_MAT_ELEM(*rpoints, int, ri, 0) = (int)CV_MAT_ELEM(*points,
-                                                         float, *inpointsi, 0);
-    CV_MAT_ELEM(*rpoints, int, ri, 1) = (int)CV_MAT_ELEM(*points,
-                                                         float, *inpointsi, 1);
+    rpoints->at<int>(ri, 0) = (int)points->at<float>(*inpointsi, 0);
+    rpoints->at<int>(ri, 1) = (int)points->at<float>(*inpointsi, 1);
   }
 
   //put second extended piece of spline
   if(extendSpline)
   {
     //copy
-    memcpy(cvPtr2D(rpoints, ri, 0), pixelst1->data.fl,
-           sizeof(float)*2*pixelst1->height);
+//    memcpy(rpoints->ptr(ri, 0), ((float*)pixelst1->data),
+//           sizeof(float)*2*pixelst1->rows);
+    pixelst1->copyTo(rpoints->rowRange(ri, ri + pixelst1->rows));
+
     //clear
-    cvReleaseMat(&pixelst0);
-    cvReleaseMat(&pixelst1);
+    delete pixelst0;
+    delete pixelst1;
   }
 
 
   //release
-  //    cvReleaseMat(&inpoints);
-  cvReleaseMat(&points);
-  cvReleaseMat(&tangents);
+  //    delete inpoints;
+  delete points;
+  delete tangents;
   inpoints.clear();
 
   //return
@@ -4689,25 +4729,26 @@ CvMat* mcvGetBezierSplinePixels(Spline &spline, float h, CvSize box,
  * \param lineType the line type to work on (horizontal or vertical)
  * \param prevSplines the previous splines to use in initializing the detection
  */
-void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
+void mcvGetRansacSplines(const cv::Mat *im, vector<Line> &lines,
                          vector<float> &lineScores, LaneDetectorConf *lineConf,
                          LineType lineType, vector<Spline> &splines,
                          vector<float> &splineScores, LineState* state)
 {
   //check if to binarize image
-  CvMat *image = cvCloneMat(im);
+  cv::Mat *image  = new cv::Mat();
+*image  = im->clone();
   if (lineConf->ransacSplineBinarize)
     mcvBinarizeImage(image); // ((topmost-intro . 147431))
 
-    int width = image->width;
-  int height = image->height;
+    int cols = image->cols;
+  int rows = image->rows;
   //try grouping the lines into regions
   //float groupThreshold = 15;
-  #warning "no line grouping in getRansacSplines"
+  //#warning "no line grouping in getRansacSplines"
   vector<Line> tlines = lines;
   vector<float> tlineScores = lineScores;
   mcvGroupLines(tlines, tlineScores, lineConf->groupThreshold,
-                cvSize(width-1, height-1));
+                cv::Size(cols-1, rows-1));
 
   //put the liens into the prevSplines to initialize it
   for (unsigned int i=0; state->ipmSplines.size() &&
@@ -4721,23 +4762,23 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
 
   //group bounding boxes of lines
   float overlapThreshold = lineConf->overlapThreshold; //0.5; //.8;
-  vector<CvRect> boxes;
-  CvSize size = cvSize(width, height);
+  vector<cv::Rect> boxes;
+  cv::Size size = cv::Size(cols, rows);
   mcvGetLinesBoundingBoxes(tlines, lineType, size, boxes);
   mcvGroupBoundingBoxes(boxes, lineType, overlapThreshold);
   //     mcvGroupLinesBoundingBoxes(tlines, lineType, overlapThreshold,
-  // 			       cvSize(width, height), boxes);
+  // 			       cv::Size(cols, rows), boxes);
   tlines.clear();
   tlineScores.clear();
 
   //add bounding boxes from previous frame
-  #warning "Turned off adding boxes from previous frame"
+  //#warning "Turned off adding boxes from previous frame"
   //     boxes.insert(boxes.end(), state->ipmBoxes.begin(),
   // 		 state->ipmBoxes.end());
 
   //     //check if there're no lines, then check the whole image
   //     if (boxes.size()<1)
-  // 	boxes.push_back(cvRect(0, 0, width-1, height-1));
+  // 	boxes.push_back(cv::Rect(0, 0, cols-1, rows-1));
 
   int window = lineConf->ransacSplineWindow; //15;
   vector<Spline> newSplines;
@@ -4746,7 +4787,7 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
   {
     //Line line = lines[i];
 
-    CvRect mask, box;
+    cv::Rect mask, box;
 
     //get box
     box = boxes[i];
@@ -4757,11 +4798,11 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
       {
         //get extent
         //int ystart = (int)fmax(fmin(line.startPoint.y, line.endPoint.y)-window, 0);
-        //int yend = (int)fmin(fmax(line.startPoint.y, line.endPoint.y)+window, height-1);
+        //int yend = (int)fmin(fmax(line.startPoint.y, line.endPoint.y)+window, rows-1);
         int ystart = (int)fmax(box.y - window, 0);
-        int yend = (int)fmin(box.y + box.height + window, height-1);
+        int yend = (int)fmin(box.y + box.height + window, rows-1);
         //get the mask
-        mask = cvRect(0, ystart, width, yend-ystart+1);
+        mask = cv::Rect(0, ystart, cols, yend-ystart+1);
       }
       break;
 
@@ -4769,16 +4810,17 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
       {
         //get extent of window to search in
         //int xstart = (int)fmax(fmin(line.startPoint.x, line.endPoint.x)-window, 0);
-        //int xend = (int)fmin(fmax(line.startPoint.x, line.endPoint.x)+window, width-1);
+        //int xend = (int)fmin(fmax(line.startPoint.x, line.endPoint.x)+window, cols-1);
         int xstart = (int)fmax(box.x - window, 0);
-        int xend = (int)fmin(box.x + box.width + window, width-1);
+        int xend = (int)fmin(box.x + box.width + window, cols-1);
         //get the mask
-        mask = cvRect(xstart, 0, xend-xstart+1, height);
+        mask = cv::Rect(xstart, 0, xend-xstart+1, rows);
       }
       break;
     }
     //get the subimage to work on
-    CvMat *subimage = cvCloneMat(image);
+    cv::Mat *subimage  = new cv::Mat();
+*subimage  = image->clone();
     //clear all but the mask
     mcvSetMat(subimage, mask, 0);
 
@@ -4788,7 +4830,7 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
     Spline spline;
     float splineScore;
     //resolution to use in pixelizing the spline
-    float h = lineConf->ransacSplineStep; // .1; //1. / max(image->width, image->height);
+    float h = lineConf->ransacSplineStep; // .1; //1. / max(image->cols, image->rows);
     mcvFitRansacSpline(subimage, lineConf->ransacSplineNumSamples,
                        lineConf->ransacSplineNumIterations,
                        lineConf->ransacSplineThreshold,
@@ -4825,9 +4867,9 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
       }
       //convert image to rgb
       mcvScaleMat(subimage, subimage);
-      CvMat *subimageClr = cvCreateMat(subimage->rows, subimage->cols,
+      cv::Mat *subimageClr = new cv::Mat(subimage->rows, subimage->cols,
                                        CV_32FC3);
-      cvCvtColor(subimage, subimageClr, CV_GRAY2RGB);
+      cv::cvtColor(*subimage, *subimageClr, cv::COLOR_GRAY2RGB);
 
       //draw rectangle
       //mcvDrawRectangle(subimageClr, box,
@@ -4836,7 +4878,7 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
 
       //put text
       sprintf(str, "score=%.2f", splineScore);
-      // 	    mcvDrawText(subimageClr, str, cvPoint(30, 30),
+      // 	    mcvDrawText(subimageClr, str, cv::Point(30, 30),
       // 			.25f, CV_RGB(1,1,1));
 
       //draw spline
@@ -4844,11 +4886,11 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
         mcvDrawSpline(subimageClr, spline, CV_RGB(1,0,0), 1);
       SHOW_IMAGE(subimageClr, title, 10);
       //clear
-      cvReleaseMat(&subimageClr);
+      delete subimageClr;
     }//#endif
 
     //clear
-    cvReleaseMat(&subimage);
+    delete subimage;
   }//for
 
 
@@ -4885,18 +4927,19 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
         break;
     }
     //convert image to rgb
-    CvMat* im2 = cvCloneMat(im);
+    cv::Mat* im2  = new cv::Mat();
+    *im2  = im->clone();
     mcvScaleMat(im2, im2);
-    CvMat *imClr = cvCreateMat(im->rows, im->cols, CV_32FC3);
-    cvCvtColor(im2, imClr, CV_GRAY2RGB);
-    cvReleaseMat(&im2);
+    cv::Mat *imClr = new cv::Mat(im->rows, im->cols, CV_32FC3);
+    cv::cvtColor(*im2, *imClr, cv::COLOR_GRAY2RGB);
+    delete im2;
 
     //draw spline
     for (unsigned int j=0; j<splines.size(); j++)
       mcvDrawSpline(imClr, splines[j], CV_RGB(0,1,0), 1);
     SHOW_IMAGE(imClr, title, 10);
     //clear
-    cvReleaseMat(&imClr);
+    delete imClr;
   }//#endif
 
 
@@ -4904,7 +4947,7 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
   boxes.clear();
   newSplines.clear();
   newSplineScores.clear();
-  cvReleaseMat(&image);
+  delete image;
 }
 
 /** This functions implements RANSAC algorithm for spline fitting
@@ -4927,10 +4970,10 @@ void mcvGetRansacSplines(const CvMat *im, vector<Line> &lines,
  * \param splineScoreStep Step to use for spline score computation
  * \param prevSplines the splines from the previous frame, to use as initial
  *          seeds
- *   pass NULL to ignore this input
+ *   pass nullptr to ignore this input
  *
  */
-void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
+void mcvFitRansacSpline(const cv::Mat *image, int numSamples, int numIterations,
                         float threshold, float scoreThreshold, int numGoodFit,
                         int splineDegree, float h, Spline *spline,
                         float *splineScore, int splineScoreJitter,
@@ -4939,37 +4982,38 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
                         vector<Spline> *prevSplines)
 {
   //get the points with non-zero pixels
-  CvMat *points = mcvGetNonZeroPoints(image, true);
+  cv::Mat *points = mcvGetNonZeroPoints(image, true);
   if (points==0 || points->cols < numSamples)
   {
     if (spline) spline->degree = -1;
-    cvReleaseMat(&points);
+    delete points;
     return;
   }
   //     fprintf(stderr, "num points=%d", points->cols);
   //subtract half
-  #warning "check adding half to points"
-  CvMat p;
-  cvGetRows(points, &p, 0, 2);
-  cvAddS(&p, cvRealScalar(0.5), &p);
+  //#warning "check adding half to points"
+  cv::Mat p;
+  p = points->rowRange(0, 2);
+  p = p + 0.5;
 
   //normalize pixels values to get weights of each non-zero point
   //get third row of points containing the pixel values
-  CvMat w;
-  cvGetRow(points, &w, 2);
+  cv::Mat w;
+  w = points->row(2);
   //normalize it
-  CvMat *weights = cvCloneMat(&w);
-  cvNormalize(weights, weights, 1, 0, CV_L1);
+  cv::Mat *weights  = new cv::Mat();
+*weights  = w.clone();
+  cv::normalize(*weights, *weights, 1, 0, cv::NORM_L1);
   //get cumulative    sum
   mcvCumSum(weights, weights);
 
   //random number generator
-  CvRNG rng = cvRNG(0xffffffff);
+  cv::RNG rng = cv::RNG(0xffffffff);
   //matrix to hold random sample
-  CvMat *randInd = cvCreateMat(numSamples, 1, CV_32SC1);
-  CvMat *samplePoints = cvCreateMat(numSamples, 2, CV_32FC1);
+  cv::Mat *randInd = new cv::Mat(numSamples, 1, CV_32SC1);
+  cv::Mat *samplePoints = new cv::Mat(numSamples, 2, CV_32FC1);
   //flag for points currently included in the set
-  CvMat *pointIn = cvCreateMat(1, points->cols, CV_8SC1);
+  cv::Mat *pointIn = new cv::Mat(1, points->cols, CV_8SC1);
   //returned splines
   Spline curSpline, bestSpline;
   bestSpline.degree = 0;//initialize
@@ -4977,7 +5021,7 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
 
   //iterator for previous splines
   vector<Spline>::iterator prevSpline;
-  bool randSpline = prevSplines==NULL || prevSplines->size()==0;
+  bool randSpline = prevSplines==nullptr || prevSplines->size()==0;
   if (!randSpline) prevSpline = prevSplines->begin();
 
   //fprintf(stderr, "spline degree=%d\n", prevSpline->degree);
@@ -4997,21 +5041,21 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
     else
     {
       //set flag to zero
-      cvSetZero(pointIn);
+      pointIn->setTo(0);
       //get random sample from the points
-      //cvRandArr(&rng, randInd, CV_RAND_UNI, cvRealScalar(0), cvRealScalar(points->cols));
+      //cv::randArr(&rng, randInd, CV_RAND_UNI, 0, points->cols);
       mcvSampleWeighted(weights, numSamples, randInd, &rng);
       // 	    SHOW_MAT(randInd, "randInd");
       for (int j=0; j<randInd->rows; j++) //numSamples
       {
         //flag it as included
-        int p = CV_MAT_ELEM(*randInd, int, j, 0);
-        CV_MAT_ELEM(*pointIn, char, 0, p) = 1;
+        int p = randInd->at<int>(j, 0);
+        pointIn->at<char>(0, p) = 1;
         //put point
-        CV_MAT_ELEM(*samplePoints, float, j, 0) =
-        CV_MAT_ELEM(*points, float, 0, p);
-        CV_MAT_ELEM(*samplePoints, float, j, 1) =
-        CV_MAT_ELEM(*points, float, 1, p);
+        samplePoints->at<float>(j, 0) =
+        points->at<float>(0, p);
+        samplePoints->at<float>(j, 1) =
+        points->at<float>(1, p);
       }
 
       //fit the spline
@@ -5051,11 +5095,12 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
 
 
       //convert image to rgb
-      CvMat *imageClr = cvCreateMat(image->rows, image->cols,
+      cv::Mat *imageClr = new cv::Mat(image->rows, image->cols,
                                     CV_32FC3);
-      CvMat *im = cvCloneMat(image);
+      cv::Mat *im  = new cv::Mat();
+      *im  = image->clone();
       mcvScaleMat(image, im);
-      cvCvtColor(im, imageClr, CV_GRAY2RGB);
+      cv::cvtColor(*im, *imageClr, cv::COLOR_GRAY2RGB);
 	    //draw spline
 	    //previous splines
  	    for (unsigned int k=0; prevSplines && k<prevSplines->size(); ++k)
@@ -5066,16 +5111,14 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
         mcvDrawSpline(imageClr, bestSpline, CV_RGB(0,0,1), 1);
 
 	    //put text
-	    CvFont font;
-	    cvInitFont(&font, CV_FONT_HERSHEY_TRIPLEX, .25f, .25f);
 	    sprintf(str, "score=%.2f bestScre=%.2f", score, bestScore);
-	    cvPutText(imageClr, str, cvPoint(30, 30), &font, CV_RGB(1,1,1));
+	    cv::putText(*imageClr, std::string(str), cv::Point(30, 30), cv::FONT_HERSHEY_SIMPLEX, 0.25f, CV_RGB(1,1,1));
 
 	    sprintf(str, "Spline Fit");
 	    SHOW_IMAGE(imageClr, str, 10);
 	    //clear
-	    cvReleaseMat(&imageClr);
-	    cvReleaseMat(&im);
+	    delete imageClr;
+	    delete im;
     }//#endif
   } //for
 
@@ -5087,11 +5130,11 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
 
 
   //clear
-  cvReleaseMat(&points);
-  cvReleaseMat(&samplePoints);
-  cvReleaseMat(&randInd);
-  cvReleaseMat(&pointIn);
-  cvReleaseMat(&weights);
+  delete points;
+  delete samplePoints;
+  delete randInd;
+  delete pointIn;
+  delete weights;
 }
 
 /** This function draws a spline onto the passed image
@@ -5101,34 +5144,35 @@ void mcvFitRansacSpline(const CvMat *image, int numSamples, int numIterations,
  * \param spline color
  *
  */
-void mcvDrawSpline(CvMat *image, Spline spline, CvScalar color, int width)
+void mcvDrawSpline(cv::Mat *image, Spline spline, cv::Scalar color, int width)
 {
   //get spline pixels
-  CvMat *pixels = mcvGetBezierSplinePixels(spline, .05,
-                                           cvSize(image->width, image->height),
+  cv::Mat *pixels = mcvGetBezierSplinePixels(spline, .05,
+                                           cv::Size(image->cols, image->rows),
                                            false);
   //if no pixels
   if (!pixels)
     return;
 
   //draw pixels in image with that color
-  for (int i=0; i<pixels->height-1; i++)
-    // 	cvSet2D(image,
-    // 		(int)cvGetReal2D(pixels, i, 1),
-    // 		(int)cvGetReal2D(pixels, i, 0),
+  for (int i=0; i<pixels->rows-1; i++)
+    // 	cv::set2D(image,
+    // 		(int)pixels->at<float>(i, 1),
+    // 		(int)pixels->at<float>(i, 0),
     // 		color);
-    cvLine(image, cvPoint((int)cvGetReal2D(pixels, i, 0),
-                          (int)cvGetReal2D(pixels, i, 1)),
-           cvPoint((int)cvGetReal2D(pixels, i+1, 0),
-                               (int)cvGetReal2D(pixels, i+1, 1)),
-           color, width);
+    cv::line(*image,
+             cv::Point(pixels->at<int32_t>(i, 0),
+                       pixels->at<int32_t>(i, 1)),
+             cv::Point(pixels->at<int32_t>(i+1, 0),
+                       pixels->at<int32_t>(i+1, 1)),
+             color, width, cv::LINE_AA);
 
   //put the control points with circles
   for (int i=0; i<spline.degree+1; i++)
-    cvCircle(image, cvPointFrom32f(spline.points[i]), 3, color, -1);
+    cv::circle(*image, cv::Point(spline.points[i]), 3, color, -1);
 
   //release
-  cvReleaseMat(&pixels);
+  delete pixels;
 }
 
 
@@ -5137,14 +5181,14 @@ void mcvDrawSpline(CvMat *image, Spline spline, CvScalar color, int width)
  * \param image the input iamge
  * \param rect the input rectangle
  * \param color the rectangle color
- * \param width the rectangle width
+ * \param cols the rectangle cols
  *
  */
-void mcvDrawRectangle (CvMat *image, CvRect rect, CvScalar color, int width)
+void mcvDrawRectangle (cv::Mat *image, cv::Rect rect, cv::Scalar color, int width)
 {
   //draw the rectangle
-  cvRectangle(image, cvPoint(rect.x, rect.y),
-              cvPoint(rect.x + rect.width-1, rect.y + rect.height-1),
+  cv::rectangle(*image, cv::Point(rect.x, rect.y),
+              cv::Point(rect.x + rect.width-1, rect.y + rect.height-1),
               color, width);
 
 }
@@ -5158,13 +5202,11 @@ void mcvDrawRectangle (CvMat *image, CvRect rect, CvScalar color, int width)
  * \param color the font color
  *
  */
-void mcvDrawText(CvMat *image, char* str, CvPoint point,
-		 float size, CvScalar color)
+void mcvDrawText(cv::Mat *image, char* str, cv::Point point,
+		 float size, cv::Scalar color)
 {
 
-  CvFont font;
-  cvInitFont(&font, CV_FONT_HERSHEY_TRIPLEX, size, size);
-  cvPutText(image, str, point, &font, color);
+  cv::putText(*image, std::string(str), point, cv::FONT_HERSHEY_SIMPLEX, size, color);
 
 }
 
@@ -5178,7 +5220,7 @@ void mcvDrawText(CvMat *image, char* str, CvPoint point,
  *
  */
 void mcvLinesImIPM2Im(vector<Line> &lines, IPMInfo &ipmInfo,
-                      CameraInfo &cameraInfo, CvSize imSize)
+                      CameraInfo &cameraInfo, cv::Size imSize)
 {
   //check if returned anything
   if (lines.size()!=0)
@@ -5195,11 +5237,11 @@ void mcvLinesImIPM2Im(vector<Line> &lines, IPMInfo &ipmInfo,
 
     //convert them from world frame into camera frame
     //
-    //put a dummy line at the beginning till we check that cvDiv bug
+    //put a dummy line at the beginning till we check that cv::div bug
     Line dummy = {{1.,1.},{2.,2.}};
     lines.insert(lines.begin(), dummy);
     //convert to mat and get in image coordinates
-    CvMat *mat = cvCreateMat(2, 2*lines.size(), FLOAT_MAT_TYPE);
+    cv::Mat *mat = new cv::Mat(2, 2*lines.size(), FLOAT_MAT_TYPE);
     mcvLines2Mat(&lines, mat);
     lines.clear();
     mcvTransformGround2Image(mat, mat, &cameraInfo);
@@ -5208,7 +5250,7 @@ void mcvLinesImIPM2Im(vector<Line> &lines, IPMInfo &ipmInfo,
     //remove the dummy line at the beginning
     lines.erase(lines.begin());
     //clear
-    cvReleaseMat(&mat);
+    delete mat;
 
     //clip the lines found and get their extent
     for (unsigned int i=0; i<lines.size(); i++)
@@ -5232,22 +5274,22 @@ void mcvLinesImIPM2Im(vector<Line> &lines, IPMInfo &ipmInfo,
  *
  */
 void mcvSplinesImIPM2Im(vector<Spline> &splines, IPMInfo &ipmInfo,
-                        CameraInfo &cameraInfo, CvSize imSize)
+                        CameraInfo &cameraInfo, cv::Size imSize)
 {
   //loop on splines and convert
   for (int i=0; i<(int)splines.size(); i++)
   {
     //get points for this spline in IPM image
-    CvMat *points = mcvEvalBezierSpline(splines[i], .1);
+    cv::Mat *points = mcvEvalBezierSpline(splines[i], .1);
 
     //transform these points to image coordinates
-    CvMat *points2 = cvCreateMat(2, points->height, CV_32FC1);
-    cvTranspose(points, points2);
-    //mcvPointImIPM2World(CvMat *mat, const IPMInfo *ipmInfo);
+    cv::Mat *points2 = new cv::Mat(2, points->rows, CV_32FC1);
+    *points2 = points->t();
+    //mcvPointImIPM2World(cv::Mat *mat, const IPMInfo *ipmInfo);
     //mcvTransformGround2Image(points2, points2, &cameraInfo);
     mcvTransformImIPM2Im(points2, points2, &ipmInfo, &cameraInfo);
-    cvTranspose(points2, points);
-    cvReleaseMat(&points2);
+    *points = points2->t();
+    delete points2;
 
     //refit the points into a spline in output image
     splines[i] = mcvFitBezierSpline(points, splines[i].degree);
@@ -5264,21 +5306,22 @@ void mcvSplinesImIPM2Im(vector<Spline> &splines, IPMInfo &ipmInfo,
  * \param rng a pointer to a random number generator
  *
  */
-void mcvSampleWeighted(const CvMat *cumSum, int numSamples, CvMat *randInd,
-                       CvRNG *rng)
+void mcvSampleWeighted(const cv::Mat *cumSum, int numSamples, cv::Mat *randInd,
+                       cv::RNG *rng)
 {
 //     //get cumulative sum of the weights
 //     //OPTIMIZE:should pass it later instead of recomputing it
-//     CvMat *cumSum = cvCloneMat(weights);
+//     cv::Mat *cumSum  = new cv::Mat();
+//     *cumSum  = weights->clone();
 //     for (int i=1; i<weights->cols; i++)
-// 	CV_MAT_ELEM(*cumSum, float, 0, i) += CV_MAT_ELEM(*cumSum, float, 0, i-1);
+// 	cumSum->at<float>(0, i) += cumSum->at<float>(0, i-1);
 
   //check if numSamples is equal or more
   int i=0;
   if (numSamples >= cumSum->cols)
   {
     for (; i<numSamples; i++)
-      CV_MAT_ELEM(*randInd, int, i, 0) = i;
+      randInd->at<int>(i, 0) = i;
   }
   else
   {
@@ -5286,23 +5329,23 @@ void mcvSampleWeighted(const CvMat *cumSum, int numSamples, CvMat *randInd,
     while(i<numSamples)
     {
       //get random number
-      double r = cvRandReal(rng);
+      double r = rng->uniform(0., 1.);//cv::randReal(rng);
 
       //get the index from cumSum
       int j;
-      for (j=0; j<cumSum->cols && r>CV_MAT_ELEM(*cumSum, float, 0, j); j++);
+      for (j=0; j<cumSum->cols && r>cumSum->at<float>(0, j); j++);
 
       //make sure this index wasnt chosen before
-      bool put = true;
+      volatile bool put = true;
       for (int k=0; k<i; k++)
-        if (CV_MAT_ELEM(*randInd, int, k, 0) == j)
+        if (randInd->at<int>(k, 0) == j)
           //put it
           put = false;
 
       if (put)
       {
         //put it in array
-        CV_MAT_ELEM(*randInd, int, i, 0) = j;
+        randInd->at<int>(i, 0) = j;
         //inc
         i++;
       }
@@ -5316,31 +5359,31 @@ void mcvSampleWeighted(const CvMat *cumSum, int numSamples, CvMat *randInd,
  * \param outMat output matrix
  *
  */
-void mcvCumSum(const CvMat *inMat, CvMat *outMat)
+void mcvCumSum(const cv::Mat *inMat, cv::Mat *outMat)
 {
 
 #define MCV_CUM_SUM(type) 				\
     /*row vector*/ 					\
     if(inMat->rows == 1) 				\
 	for (int i=1; i<outMat->cols; i++) 		\
-	    CV_MAT_ELEM(*outMat, type, 0, i) += 	\
-		CV_MAT_ELEM(*outMat, type, 0, i-1); 	\
+	    outMat->at<type>(0, i) += 	\
+		outMat->at<type>(0, i-1); 	\
     /*column vector*/					\
     else						\
 	for (int i=1; i<outMat->rows; i++) 		\
-	    CV_MAT_ELEM(*outMat, type, i, 0) += 	\
-		CV_MAT_ELEM(*outMat, type, i-1, 0);
+	    outMat->at<type>(i, 0) += 	\
+		outMat->at<type>(i-1, 0);
 
   //copy to output if not equal
   if(inMat != outMat)
-    cvCopy(inMat, outMat);
+    inMat->copyTo(*outMat);
 
   //check type
-  if (CV_MAT_TYPE(inMat->type)==CV_32FC1)
+  if (CV_MAT_TYPE(inMat->type())==CV_32FC1)
   {
     MCV_CUM_SUM(float)
   }
-  else if (CV_MAT_TYPE(inMat->type)==CV_32SC1)
+  else if (CV_MAT_TYPE(inMat->type())==CV_32SC1)
   {
     MCV_CUM_SUM(int)
   }
@@ -5363,103 +5406,103 @@ void mcvCumSum(const CvMat *inMat, CvMat *outMat)
  *          (cosine, 1: most restrictive, 0: most liberal)
  *
  */
-void mcvLocalizePoints(const CvMat *im, const CvMat *inPoints,
-                       CvMat *outPoints, int numLinePixels,
+void mcvLocalizePoints(const cv::Mat *im, const cv::Mat *inPoints,
+                       cv::Mat *outPoints, int numLinePixels,
                        float angleThreshold)
 {
   //size of inPoints must be at least 3
-  if(inPoints->height<3)
+  if(inPoints->rows<3)
   {
-    cvCopy(inPoints, outPoints);
+    inPoints->copyTo(*outPoints);
     return;
   }
 
   //number of pixels in line around   each point
   //int numLinePixels = 20;
   //tangent and normal
-  CvPoint2D32f tangent, normal;// peakTangent;
+  cv::Point2f tangent, normal;// peakTangent;
 
   //threshold for accepting new point (if not changing orientation too much)
   //float angleThreshold = .7;//.96;
-  CvMat *imageClr;
+  cv::Mat *imageClr;
   char str[256];
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
     //get string
     sprintf(str, "Localize Points");
 
     //convert image to rgb
-    imageClr = cvCreateMat(im->rows, im->cols, CV_32FC3);
-    cvCvtColor(im, imageClr, CV_GRAY2RGB);
+    imageClr = new cv::Mat(im->rows, im->cols, CV_32FC3);
+    cv::cvtColor(*im, *imageClr, cv::COLOR_GRAY2RGB);
   }//#endif
 
 
   //loop on the points
-  for (int i=0; i<inPoints->height; i++)
+  for (int i=0; i<inPoints->rows; i++)
   {
 
     //get tangent to current point
     if (i==0)
     {
       //first point, then tangent is vector to next point
-      tangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, 1, 0) -
-      CV_MAT_ELEM(*inPoints, float, 0, 0),
-                             CV_MAT_ELEM(*inPoints, float, 1, 1) -
-                             CV_MAT_ELEM(*inPoints, float, 0, 1));
+      tangent = cv::Point(inPoints->at<float>(1, 0) -
+      inPoints->at<float>(0, 0),
+                             inPoints->at<float>(1, 1) -
+                             inPoints->at<float>(0, 1));
     }
     else if (i==1)
-      tangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, 1, 0) -
-                             CV_MAT_ELEM(*outPoints, float, 0, 0),
-                             CV_MAT_ELEM(*inPoints, float, 1, 1) -
-                             CV_MAT_ELEM(*outPoints, float, 0, 1));
+      tangent = cv::Point(inPoints->at<float>(1, 0) -
+                             outPoints->at<float>(0, 0),
+                             inPoints->at<float>(1, 1) -
+                             outPoints->at<float>(0, 1));
 
-    else //if (i==inPoints->height-1)
+    else //if (i==inPoints->rows-1)
     {
       //last pointm then vector from previous two point
-      tangent = cvPoint2D32f(CV_MAT_ELEM(*outPoints, float, i-1, 0) -
-                             CV_MAT_ELEM(*outPoints, float, i-2, 0),
-                             CV_MAT_ELEM(*outPoints, float, i-1, 1) -
-                             CV_MAT_ELEM(*outPoints, float, i-2, 1));
-      // 	    tangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, i, 0) -
-      // 				   CV_MAT_ELEM(*outPoints, float, i-1, 0),
-      // 				   CV_MAT_ELEM(*inPoints, float, i, 1) -
-      // 				   CV_MAT_ELEM(*outPoints, float, i-1, 1));
+      tangent = cv::Point(outPoints->at<float>(i-1, 0) -
+                             outPoints->at<float>(i-2, 0),
+                             outPoints->at<float>(i-1, 1) -
+                             outPoints->at<float>(i-2, 1));
+      // 	    tangent = cv::Point(inPoints->at<float>(i, 0) -
+      // 				   outPoints->at<float>(i-1, 0),
+      // 				   inPoints->at<float>(i, 1) -
+      // 				   outPoints->at<float>(i-1, 1));
     }
 // 	else
 // 	{
 // 	    //general point, then take next - previous
-// 	    tangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, i, 0) - //i+1
-// 				   CV_MAT_ELEM(*outPoints, float, i-1, 0),
-// 				   CV_MAT_ELEM(*inPoints, float, i, 1) - //i+1
-// 				   CV_MAT_ELEM(*outPoints, float, i-1, 1));
+// 	    tangent = cv::Point(inPoints->at<float>(i, 0) - //i+1
+// 				   outPoints->at<float>(i-1, 0),
+// 				   inPoints->at<float>(i, 1) - //i+1
+// 				   outPoints->at<float>(i-1, 1));
 // 	}
 
     //get normal
-    float ss = cvInvSqrt(tangent.x * tangent.x + tangent.y * tangent.y);
+    float ss = 1./cv::sqrt(tangent.x * tangent.x + tangent.y * tangent.y);
     tangent.x *= ss; tangent.y *= ss;
     normal.x = tangent.y; normal.y = -tangent.x;
 
     //get points in normal direction
     Line line;
-    line.startPoint = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, i, 0) +
+    line.startPoint = cv::Point(inPoints->at<float>(i, 0) +
                 numLinePixels * normal.x,
-                CV_MAT_ELEM(*inPoints, float, i, 1) +
+                inPoints->at<float>(i, 1) +
                 numLinePixels * normal.y);
-    line.endPoint = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, i, 0) -
+    line.endPoint = cv::Point(inPoints->at<float>(i, 0) -
               numLinePixels * normal.x,
-              CV_MAT_ELEM(*inPoints, float, i, 1) -
+              inPoints->at<float>(i, 1) -
               numLinePixels * normal.y);
 
 
-    CvPoint2D32f prevPoint = {0., 0.};
+    cv::Point2f prevPoint = {0., 0.};
     if (i>0)
-      prevPoint = cvPoint2D32f(CV_MAT_ELEM(*outPoints, float, i-1, 0),
-                               CV_MAT_ELEM(*outPoints, float, i-1, 1));
+      prevPoint = cv::Point(outPoints->at<float>(i-1, 0),
+                               outPoints->at<float>(i-1, 1));
 
     //get line peak i.e. point in middle of bright line on dark background
-    CvPoint2D32f peak;
+    cv::Point2f peak;
   // 	float val = mcvGetLinePeak(im, line, peak);
     //get line peak
-    vector<CvPoint2D32f> peaks;
+    vector<cv::Point2f> peaks;
     vector<float> peakVals;
     float val = mcvGetLinePeak(im, line, peaks, peakVals);
 
@@ -5474,22 +5517,22 @@ void mcvLocalizePoints(const CvMat *im, const CvMat *inPoints,
     peakVals.clear();
 
     //check new peak
-    if (mcvIsPointInside(line.startPoint, cvSize(im->width, im->height)) &&
-        mcvIsPointInside(line.endPoint, cvSize(im->width, im->height)) &&
+    if (mcvIsPointInside(line.startPoint, cv::Size(im->cols, im->rows)) &&
+        mcvIsPointInside(line.endPoint, cv::Size(im->cols, im->rows)) &&
         (//!i ||
         (i>0 &&
           mcvIsValidPeak(peak, tangent, prevPoint,
             angleThreshold))) )
     {
       //put new peak
-      CV_MAT_ELEM(*outPoints, float, i, 0) = peak.x;
-      CV_MAT_ELEM(*outPoints, float, i, 1) = peak.y;
+      outPoints->at<float>(i, 0) = peak.x;
+      outPoints->at<float>(i, 1) = peak.y;
     }
     else
     {
       //keep original point
-      CV_MAT_ELEM(*outPoints, float, i, 0) = CV_MAT_ELEM(*inPoints, float, i, 0);
-      CV_MAT_ELEM(*outPoints, float, i, 1) = CV_MAT_ELEM(*inPoints, float, i, 1);
+      outPoints->at<float>(i, 0) = inPoints->at<float>(i, 0);
+      outPoints->at<float>(i, 1) = inPoints->at<float>(i, 1);
     }
 
     //debugging
@@ -5498,14 +5541,14 @@ void mcvLocalizePoints(const CvMat *im, const CvMat *inPoints,
       fprintf(stderr, "Localize val=%.3f\n", val);
 
       //draw original point, localized point, and line endpoints
-      cvLine(imageClr, cvPointFrom32f(line.startPoint),
-            cvPointFrom32f(line.endPoint), CV_RGB(0, 0, 1));
+      cv::line(*imageClr, cv::Point(line.startPoint),
+            cv::Point(line.endPoint), CV_RGB(0, 0, 1));
       //output points
-      cvCircle(imageClr, cvPoint((int)CV_MAT_ELEM(*outPoints, float, i, 0),
-                                (int)CV_MAT_ELEM(*outPoints, float, i, 1)),
+      cv::circle(*imageClr, cv::Point((int)outPoints->at<float>(i, 0),
+                                (int)outPoints->at<float>(i, 1)),
               1, CV_RGB(0, 1, 0), -1);
       //input points
-      cvCircle(imageClr, cvPoint((int)(line.startPoint.x+line.endPoint.x)/2,
+      cv::circle(*imageClr, cv::Point((int)(line.startPoint.x+line.endPoint.x)/2,
                                 (int)(line.startPoint.y+line.endPoint.y)/2),
               1, CV_RGB(1, 0, 0), -1);
       //show image
@@ -5516,7 +5559,7 @@ void mcvLocalizePoints(const CvMat *im, const CvMat *inPoints,
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
     SHOW_IMAGE(imageClr, str, 10);
     //clear
-    cvReleaseMat(&imageClr);
+    delete imageClr;
   }//#endif
 }
 
@@ -5531,17 +5574,16 @@ void mcvLocalizePoints(const CvMat *im, const CvMat *inPoints,
  * \return true if useful peak, zero otherwise
  *
  */
-bool mcvIsValidPeak(const CvPoint2D32f &peak, const CvPoint2D32f &tangent,
-                    const CvPoint2D32f &prevPoint, float angleThreshold)
+bool mcvIsValidPeak(const cv::Point2f &peak, const cv::Point2f &tangent,
+                    const cv::Point2f &prevPoint, float angleThreshold)
 {
   //compute the tangent line for the peak
-  CvPoint2D32f peakTangent;
+  cv::Point2f peakTangent;
   peakTangent.x = peak.x - prevPoint.x;
   peakTangent.y = peak.y - prevPoint.y;
 
   //normalize new tangent
-  float ss = cvInvSqrt(peakTangent.x * peakTangent.x + peakTangent.y *
-                       peakTangent.y);
+  float ss = 1./cv::sqrt(peakTangent.x * peakTangent.x + peakTangent.y * peakTangent.y);
   peakTangent.x *= ss; peakTangent.y *= ss;
 
   //check angle between newTangent and tangent, and refuse peak if too far
@@ -5569,11 +5611,11 @@ bool mcvIsValidPeak(const CvPoint2D32f &peak, const CvPoint2D32f &tangent,
  * \return index of peak chosen, -1 if nothing
  *
  */
-int mcvChooseBestPeak(const vector<CvPoint2D32f> &peaks,
+int mcvChooseBestPeak(const vector<cv::Point2f> &peaks,
                       const vector<float> &peakVals,
-                      CvPoint2D32f &peak, float &peakVal,
-                      float contThreshold, const CvPoint2D32f &tangent,
-                      const CvPoint2D32f &prevPoint, float angleThreshold)
+                      cv::Point2f &peak, float &peakVal,
+                      float contThreshold, const cv::Point2f &tangent,
+                      const cv::Point2f &prevPoint, float angleThreshold)
 {
   int index=-1;
   float maxAngle=0;
@@ -5582,10 +5624,10 @@ int mcvChooseBestPeak(const vector<CvPoint2D32f> &peaks,
   //loop and check
   for (unsigned int i=0; i<peaks.size(); ++i)
   {
-    CvPoint2D32f peak = peaks[i];
+    cv::Point2f peak = peaks[i];
 
     //compute the tangent line for the peak and normalize
-    CvPoint2D32f peakTangent;
+    cv::Point2f peakTangent;
     peakTangent.x = peak.x - prevPoint.x;
     peakTangent.y = peak.y - prevPoint.y;
     peakTangent = mcvNormalizeVector(peakTangent);
@@ -5595,7 +5637,7 @@ int mcvChooseBestPeak(const vector<CvPoint2D32f> &peaks,
 
     //check if min angle so far and above both thresholds
     if (DEBUG_LINES)
-      fprintf(stderr, "peak#%d/%d (%f, %f): angle=%f, maxAngle=%f\n",
+      fprintf(stderr, "peak#%d/%lu (%f, %f): angle=%f, maxAngle=%f\n",
               i, peaks.size(), peaks[i].x, peaks[i].y,
               angle, maxAngle);
     if (peakVals[i]>=contThreshold && angle>=angleThreshold &&
@@ -5637,44 +5679,47 @@ int mcvChooseBestPeak(const vector<CvPoint2D32f> &peaks,
  * \param smoothPeak whether to smooth for calculating peaks or not
  *
  */
-CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
+cv::Mat*  mcvExtendPoints(const cv::Mat *im, const cv::Mat *inPoints,
                         float angleThreshold, float meanDirAngleThreshold,
                         int linePixelsTangent, int linePixelsNormal,
                         float contThreshold, int deviationThreshold,
-                        CvRect bbox, bool smoothPeaks)
+                        cv::Rect bbox, bool smoothPeaks)
 {
   //size of inPoints must be at least 3
-  if(inPoints->height<4)
+  if(inPoints->rows<4)
   {
-    return cvCloneMat(inPoints);
+    cv::Mat* ret = new cv::Mat();
+    *ret = inPoints->clone();
+    return ret;
   }
 
 
   char str[256];
-  CvMat *imageClr;
+  cv::Mat *imageClr;
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
     //get string
     sprintf(str, "Extend Points");
 
     //convert image to rgb
-    imageClr = cvCreateMat(im->rows, im->cols, CV_32FC3);
-    CvMat *im2 = cvCloneMat(im);
+    imageClr = new cv::Mat(im->rows, im->cols, CV_32FC3);
+    cv::Mat *im2  = new cv::Mat();
+*im2  = im->clone();
     mcvScaleMat(im, im2);
-    cvCvtColor(im2, imageClr, CV_GRAY2RGB);
-    cvReleaseMat(&im2);
+    cv::cvtColor(*im2, *imageClr, cv::COLOR_GRAY2RGB);
+    delete im2;
 
     //show original points
-    for(int i=0; i<inPoints->height; i++)
+    for(int i=0; i<inPoints->rows; i++)
         //input points
-        cvCircle(imageClr, cvPoint((int)(CV_MAT_ELEM(*inPoints, float, i, 0)),
-                                   (int)(CV_MAT_ELEM(*inPoints, float, i, 1))),
+        cv::circle(*imageClr, cv::Point((int)(inPoints->at<float>(i, 0)),
+                                   (int)(inPoints->at<float>(i, 1))),
                  1, CV_RGB(0, 1, 1), -1);
     //show image
     SHOW_IMAGE(imageClr, str, 10);
   }//#endif
 
   //tangent and normal
-  CvPoint2D32f tangent, curPoint, peak, nextPoint, meanDir;
+  cv::Point2f tangent, curPoint, peak, nextPoint, meanDir;
   //prevTangent, pprevTangent,
 
   //number of pixels away to look for points
@@ -5692,10 +5737,10 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
   //int deviationThreshold = 2;
 
   //first go in one direction: from first point backward
-  vector<CvPoint2D32f> backPoints;
+  vector<cv::Point2f> backPoints;
   int numBack = 0;
   int deviationCount = 0;
-  vector<CvPoint2D32f> peaks;
+  vector<cv::Point2f> peaks;
   vector<float> peakVals;
   //get mean direction of points
   meanDir = mcvGetPointsMeanVector(inPoints, false);
@@ -5705,22 +5750,22 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
     //get tangent from previous point in input points if no output points yet
     if(outSize==0)
     {
-	    curPoint = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, 0, 0),
-                              CV_MAT_ELEM(*inPoints, float, 0, 1));
-	    tangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, 0, 0) -
-                             CV_MAT_ELEM(*inPoints, float, 1, 0),
-                             CV_MAT_ELEM(*inPoints, float, 0, 1) -
-                             CV_MAT_ELEM(*inPoints, float, 1, 1));
-      // 	    prevTangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, 1, 0) -
-      // 				       CV_MAT_ELEM(*inPoints, float, 2, 0),
-      // 				       CV_MAT_ELEM(*inPoints, float, 1, 1) -
-      // 				       CV_MAT_ELEM(*inPoints, float, 2, 1));
+	    curPoint = cv::Point(inPoints->at<float>(0, 0),
+                              inPoints->at<float>(0, 1));
+	    tangent = cv::Point(inPoints->at<float>(0, 0) -
+                             inPoints->at<float>(1, 0),
+                             inPoints->at<float>(0, 1) -
+                             inPoints->at<float>(1, 1));
+      // 	    prevTangent = cv::Point(inPoints->at<float>(1, 0) -
+      // 				       inPoints->at<float>(2, 0),
+      // 				       inPoints->at<float>(1, 1) -
+      // 				       inPoints->at<float>(2, 1));
       // 	    prevTangent = mcvNormalizeVector(prevTangent);
 
-      // 	    pprevTangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, 2, 0) -
-      // 				       CV_MAT_ELEM(*inPoints, float, 3, 0),
-      // 				       CV_MAT_ELEM(*inPoints, float, 2, 1) -
-      // 				       CV_MAT_ELEM(*inPoints, float, 3, 1));
+      // 	    pprevTangent = cv::Point(inPoints->at<float>(2, 0) -
+      // 				       inPoints->at<float>(3, 0),
+      // 				       inPoints->at<float>(2, 1) -
+      // 				       inPoints->at<float>(3, 1));
       // 	    pprevTangent = mcvNormalizeVector(pprevTangent);
     }
     //only one out point till now
@@ -5731,15 +5776,15 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
 	    curPoint = backPoints[outSize-1];
 	    if (outSize==1)
 	    {
-        tangent = cvPoint2D32f(backPoints[outSize-1].x -
-                               CV_MAT_ELEM(*inPoints, float, 0, 0),
+        tangent = cv::Point(backPoints[outSize-1].x -
+                               inPoints->at<float>(0, 0),
                                backPoints[outSize-1].y -
-                               CV_MAT_ELEM(*inPoints, float, 0, 1));
+                               inPoints->at<float>(0, 1));
 	    }
 	    //more than one
 	    else
 	    {
-        tangent = cvPoint2D32f(backPoints[outSize-1].x -
+        tangent = cv::Point(backPoints[outSize-1].x -
                                backPoints[outSize-2].x,
                                backPoints[outSize-1].y -
                                backPoints[outSize-2].y);
@@ -5752,11 +5797,11 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
                                     linePixelsNormal, nextPoint);
 
     //check if still inside
-    //if (mcvIsPointInside(nextPoint, cvSize(im->width-1, im->height-1)))
+    //if (mcvIsPointInside(nextPoint, cv::Size(im->cols-1, im->rows-1)))
     if (mcvIsPointInside(nextPoint, bbox))
     {
 	    //clip line
-	    mcvIntersectLineWithBB(&line, cvSize(im->width-1, im->height-1), &line);
+	    mcvIntersectLineWithBB(&line, cv::Size(im->cols-1, im->rows-1), &line);
 
 	    //get line peak
 	    float val = mcvGetLinePeak(im, line, peaks, peakVals,
@@ -5821,13 +5866,13 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
 
     if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
     //draw original point, localized point, and line endpoints
-    cvLine(imageClr, cvPointFrom32f(line.startPoint),
-           cvPointFrom32f(line.endPoint),
+    cv::line(*imageClr, cv::Point(line.startPoint),
+           cv::Point(line.endPoint),
     CV_RGB(0, 0, 1));
     //output points
-    cvCircle(imageClr, cvPointFrom32f(peak), 1, CV_RGB(0, 1, 0), -1);
+    cv::circle(*imageClr, cv::Point(peak), 1, CV_RGB(0, 1, 0), -1);
     //input points
-    cvCircle(imageClr, cvPointFrom32f(nextPoint), 1, CV_RGB(1, 0, 0), -1);
+    cv::circle(*imageClr, cv::Point(nextPoint), 1, CV_RGB(1, 0, 0), -1);
     //show image
     SHOW_IMAGE(imageClr, str, 10);
     }//#endif
@@ -5835,7 +5880,7 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
 
   //do the same for the opposite direction
   cont = true;
-  vector<CvPoint2D32f> frontPoints;
+  vector<cv::Point2f> frontPoints;
   int numFront = 0;
   deviationCount = 0;
   //get mean direction in forward direction
@@ -5846,29 +5891,23 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
     //get tangent from previous point in input points if no output points yet
     if(outSize==0)
     {
-	    curPoint = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float,
-                                          inPoints->height-1, 0),
-                              CV_MAT_ELEM(*inPoints, float,
-                                          inPoints->height-1, 1));
-	    tangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float,
-                                         inPoints->height-1, 0) -
-                             CV_MAT_ELEM(*inPoints, float,
-                                         inPoints->height-2, 0),
-                             CV_MAT_ELEM(*inPoints, float,
-                                         inPoints->height-1, 1) -
-                             CV_MAT_ELEM(*inPoints, float,
-                                         inPoints->height-2, 1));
+	    curPoint = cv::Point(inPoints->at<float>(inPoints->rows-1, 0),
+                              inPoints->at<float>(inPoints->rows-1, 1));
+	    tangent = cv::Point(inPoints->at<float>(inPoints->rows-1, 0) -
+                             inPoints->at<float>(inPoints->rows-2, 0),
+                             inPoints->at<float>(inPoints->rows-1, 1) -
+                             inPoints->at<float>(inPoints->rows-2, 1));
 
-      // 	    prevTangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, inPoints->height-2, 0) -
-      // 				       CV_MAT_ELEM(*inPoints, float, inPoints->height-3, 0),
-      // 				       CV_MAT_ELEM(*inPoints, float, inPoints->height-2, 1) -
-      // 				       CV_MAT_ELEM(*inPoints, float, inPoints->height-3, 1));
+      // 	    prevTangent = cv::Point(inPoints->at<float>(inPoints->rows-2, 0) -
+      // 				       inPoints->at<float>(inPoints->rows-3, 0),
+      // 				       inPoints->at<float>(inPoints->rows-2, 1) -
+      // 				       inPoints->at<float>(inPoints->rows-3, 1));
       // 	    prevTangent = mcvNormalizeVector(prevTangent);
 
-      // 	    pprevTangent = cvPoint2D32f(CV_MAT_ELEM(*inPoints, float, inPoints->height-3, 0) -
-      // 				       CV_MAT_ELEM(*inPoints, float, inPoints->height-4, 0),
-      // 				       CV_MAT_ELEM(*inPoints, float, inPoints->height-3, 1) -
-      // 				       CV_MAT_ELEM(*inPoints, float, inPoints->height-4, 1));
+      // 	    pprevTangent = cv::Point(inPoints->at<float>(inPoints->rows-3, 0) -
+      // 				       inPoints->at<float>(inPoints->rows-4, 0),
+      // 				       inPoints->at<float>(inPoints->rows-3, 1) -
+      // 				       inPoints->at<float>(inPoints->rows-4, 1));
       // 	    pprevTangent = mcvNormalizeVector(pprevTangent);
     }
     //only one out point till now
@@ -5879,17 +5918,15 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
 	    curPoint = frontPoints[outSize-1];
 	    if (outSize==1)
 	    {
-        tangent = cvPoint2D32f(frontPoints[outSize-1].x -
-                               CV_MAT_ELEM(*inPoints, float,
-                                           inPoints->height-1, 0),
+        tangent = cv::Point(frontPoints[outSize-1].x -
+                               inPoints->at<float>(inPoints->rows-1, 0),
                                frontPoints[outSize-1].y -
-                               CV_MAT_ELEM(*inPoints, float,
-                                           inPoints->height-1, 1));
+                               inPoints->at<float>(inPoints->rows-1, 1));
 	    }
 	    //more than one
 	    else
 	    {
-        tangent = cvPoint2D32f(frontPoints[outSize-1].x -
+        tangent = cv::Point(frontPoints[outSize-1].x -
                                frontPoints[outSize-2].x,
                                frontPoints[outSize-1].y -
                                frontPoints[outSize-2].y);
@@ -5901,11 +5938,11 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
                                     linePixelsNormal, nextPoint);
 
     //check if still inside
-  // 	if (mcvIsPointInside(nextPoint, cvSize(im->width-1, im->height-1)))
+  // 	if (mcvIsPointInside(nextPoint, cv::Size(im->cols-1, im->rows-1)))
     if (mcvIsPointInside(nextPoint, bbox))
     {
       //clip line
-      mcvIntersectLineWithBB(&line, cvSize(im->width-1, im->height-1), &line);
+      mcvIntersectLineWithBB(&line, cv::Size(im->cols-1, im->rows-1), &line);
 
 	    //get line peak
       // 	    float val = mcvGetLinePeak(im, line, peak);
@@ -5970,12 +6007,12 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
 
     if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
 	    //draw original point, localized point, and line endpoints
-	    cvLine(imageClr, cvPointFrom32f(line.startPoint),
-             cvPointFrom32f(line.endPoint), CV_RGB(0, 0, 1));
+	    cv::line(*imageClr, cv::Point(line.startPoint),
+             cv::Point(line.endPoint), CV_RGB(0, 0, 1));
 	    //output points
-	    cvCircle(imageClr, cvPointFrom32f(peak), 1, CV_RGB(0, 1, 0), -1);
+	    cv::circle(*imageClr, cv::Point(peak), 1, CV_RGB(0, 1, 0), -1);
 	    //input points
-	    cvCircle(imageClr, cvPointFrom32f(nextPoint), 1, CV_RGB(1, 0, 0), -1);
+	    cv::circle(*imageClr, cv::Point(nextPoint), 1, CV_RGB(1, 0, 0), -1);
 	    //show image
 	    SHOW_IMAGE(imageClr, str, 10);
     }//#endif
@@ -5985,34 +6022,36 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
   numBack = backPoints.size();
   //now that we have extended the points in both directions, we need to put them
   //back into the return matrix
-  CvMat *extendedPoints = cvCreateMat(inPoints->height + numBack + numFront,
+  cv::Mat *extendedPoints = new cv::Mat(inPoints->rows + numBack + numFront,
                                       2, CV_32FC1);
   //first put back points in reverse order
-  vector<CvPoint2D32f>::iterator pointi;
+  vector<cv::Point2f>::iterator pointi;
   int i = 0;
-  for (i=0, pointi=backPoints.end()-1; i<numBack; i++, pointi--)
+  for (i=0, pointi=backPoints.end(); i<numBack; i++)
   {
-    CV_MAT_ELEM(*extendedPoints, float, i, 0) = (*pointi).x;
-    CV_MAT_ELEM(*extendedPoints, float, i, 1) = (*pointi).y;
+	  pointi--;
+    extendedPoints->at<float>(i, 0) = (*pointi).x;
+    extendedPoints->at<float>(i, 1) = (*pointi).y;
   }
 
   //then put the original points
-  i = numBack;
-  memcpy(cvPtr2D(extendedPoints, i, 0), inPoints->data.fl,
-         sizeof(float)*2*inPoints->height);
+//  i = numBack;
+//  memcpy(extendedPoints->ptr(i, 0), ((float*)inPoints->data),
+//         sizeof(float)*2*inPoints->rows);
+  inPoints->copyTo(extendedPoints->rowRange(numBack, numBack + inPoints->rows));
 
   //then put the front points in normal order
-  for (i = numBack+inPoints->height, pointi=frontPoints.begin();
-       i<extendedPoints->height; pointi++, i++)
+  for (i = numBack+inPoints->rows, pointi=frontPoints.begin();
+       i<extendedPoints->rows; pointi++, i++)
   {
-    CV_MAT_ELEM(*extendedPoints, float, i, 0) = (*pointi).x;
-    CV_MAT_ELEM(*extendedPoints, float, i, 1) = (*pointi).y;
+    extendedPoints->at<float>(i, 0) = (*pointi).x;
+    extendedPoints->at<float>(i, 1) = (*pointi).y;
   }
 
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
     SHOW_IMAGE(imageClr, str, 10);
     //clear
-    cvReleaseMat(&imageClr);
+    delete imageClr;
   }//#endif
 
   //clear
@@ -6034,12 +6073,12 @@ CvMat*  mcvExtendPoints(const CvMat *im, const CvMat *inPoints,
  * \param nextPoint the next point on the extended line
  * \return the normal line at new point
  */
-Line mcvGetExtendedNormalLine(CvPoint2D32f &curPoint, CvPoint2D32f &tangent,
+Line mcvGetExtendedNormalLine(cv::Point2f &curPoint, cv::Point2f &tangent,
                               int linePixelsTangent, int linePixelsNormal,
-                              CvPoint2D32f &nextPoint)
+                              cv::Point2f &nextPoint)
 {
   //normalize tangent
-  float ssq = cvInvSqrt(tangent.x*tangent.x + tangent.y*tangent.y);
+  float ssq = 1./cv::sqrt(tangent.x*tangent.x + tangent.y*tangent.y);
   tangent.x *= ssq;
   tangent.y *= ssq;
 
@@ -6048,13 +6087,13 @@ Line mcvGetExtendedNormalLine(CvPoint2D32f &curPoint, CvPoint2D32f &tangent,
   nextPoint.y = curPoint.y + linePixelsTangent * tangent.y;
 
   //get normal direction
-  CvPoint2D32f normal = cvPoint2D32f(-tangent.y, tangent.x);
+  cv::Point2f normal = cv::Point(-tangent.y, tangent.x);
 
   //get two points along the normal line
   Line line;
-  line.startPoint = cvPoint2D32f(nextPoint.x + linePixelsNormal*normal.x,
+  line.startPoint = cv::Point(nextPoint.x + linePixelsNormal*normal.x,
                                  nextPoint.y + linePixelsNormal*normal.y);
-  line.endPoint = cvPoint2D32f(nextPoint.x - linePixelsNormal*normal.x,
+  line.endPoint = cv::Point(nextPoint.x - linePixelsNormal*normal.x,
                                nextPoint.y - linePixelsNormal*normal.y);
 
   //return
@@ -6077,8 +6116,8 @@ Line mcvGetExtendedNormalLine(CvPoint2D32f &curPoint, CvPoint2D32f &tangent,
  *  or not
  *
  */
-float mcvGetLinePeak(const CvMat *im, const Line &line,
-                     vector<CvPoint2D32f> &peaks,
+float mcvGetLinePeak(const cv::Mat *im, const Line &line,
+                     vector<cv::Point2f> &peaks,
                      vector<float> &peakVals, bool positivePeak,
                      bool smoothPeaks)
 {
@@ -6095,46 +6134,45 @@ float mcvGetLinePeak(const CvMat *im, const Line &line,
       0.043936933623407, 0.011108996538242, 0.002187491118183,
       0.000335462627903, 0.000040065297393, 0.000003726653172};
   int stepsize = 21;
-  CvMat step = cvMat(1, stepsize, CV_32FC1, stepp);
+  cv::Mat step = cv::Mat(1, stepsize, CV_32FC1, stepp);
 
   //take negative to work for opposite polarity
   if (!positivePeak)
-    cvScale(&step, &step, -1);
+//    cv::scale(&step, &step, -1);
+    step *= -1;
   //     //get the gaussian kernel to convolve with
-  //     int width = 5;
+  //     int cols = 5;
   //     float step = .5;
-  //     CvMat *step = cvCreateMat(1, (int)(2*width/step+1), CV_32FC1);
+  //     cv::Mat *step = new cv::Mat(1, (int)(2*cols/step+1), CV_32FC1);
   //     int j; float i;
   //     for (i=-w, j=0; i<=w; i+=step, ++j)
-  //         CV_MAT_ELEM(*step, FLOAT_MAT_ELEM_TYPE, 0, j) =
+  //         step->at<FLOAT_MAT_ELEM_TYPE>(0, j) =
   //            (float) exp(-(.5*i*i));
 
 
   //then get the pixel coordinates of the line in the image
-  CvMat *pixels;
+  cv::Mat *pixels;
   pixels = mcvGetLinePixels(line);
   //get pixel values
-  CvMat *pix = cvCreateMat(1, pixels->height, CV_32FC1);
-  for(int j=0; j<pixels->height; j++)
+  cv::Mat *pix = new cv::Mat(1, pixels->rows, CV_32FC1);
+  for(int j=0; j<pixels->rows; j++)
   {
-    CV_MAT_ELEM(*pix, float, 0, j) =
-        cvGetReal2D(im,
-                    MIN(MAX(CV_MAT_ELEM(*pixels, int, j, 1),0),im->height-1),
-                    MIN(MAX(CV_MAT_ELEM(*pixels, int, j, 0),0),im->width-1));
+    pix->at<float>(0, j) =
+        im->at<float>(MIN(MAX(pixels->at<int>(j, 1),0),im->rows-1), MIN(MAX(pixels->at<int>(j, 0),0),im->cols-1));
   }
   //clear
-  cvReleaseMat(&pixels);
+  delete pixels;
 
   //remove the mean
-  CvScalar mean = cvAvg(pix);
-  cvSubS(pix, mean, pix);
+  cv::Scalar mean = cv::mean(*pix);
+  *pix = *pix - mean;
 
   //convolve with step
-  CvMat *pixStep = cvCreateMat(pix->height, pix->width, CV_32FC1);
+  cv::Mat *pixStep = new cv::Mat(pix->rows, pix->cols, CV_32FC1);
   if (smoothPeaks)
-    cvFilter2D(pix, pixStep, &step);
+    cv::filter2D(*pix, *pixStep, -1, step);
   else
-    cvCopy(pix, pixStep);
+    pix->copyTo(*pixStep);
   //     SHOW_MAT(pixStep, "pixStep");
   //     SHOW_MAT(pix, "pixels");
 
@@ -6143,7 +6181,7 @@ float mcvGetLinePeak(const CvMat *im, const Line &line,
   float top;
   vector<double> maxima;
   vector<int> maximaLoc;
-  CvPoint2D32f peak;
+  cv::Point2f peak;
   //get top point
   mcvGetVectorLocalMax(pixStep, maxima, maximaLoc);
   if(maximaLoc.size()>0)
@@ -6154,16 +6192,16 @@ float mcvGetLinePeak(const CvMat *im, const Line &line,
     for (unsigned int i=0; i<maximaLoc.size(); ++i)
     {
 	    //get subpixel accuracy
-	    double val1 = CV_MAT_ELEM(*pixStep, float, 0, MAX(maximaLoc[i]-1, 0));
-	    double val3 = CV_MAT_ELEM(*pixStep, float, 0, MIN(maximaLoc[i]+1,
-                                                        pixStep->width-1));
+	    double val1 = pixStep->at<float>(0, MAX(maximaLoc[i]-1, 0));
+	    double val3 = pixStep->at<float>(0, MIN(maximaLoc[i]+1,
+                                                        pixStep->cols-1));
 	    top = (float)mcvGetLocalMaxSubPixel(val1, maxima[i], val3);
 	    top += maximaLoc[i];
 	    //fprintf(stderr, "val1=%f, val2=%f, val3=%f\n", val1, maxima[i], val3);
 	    //fprintf(stderr, "top=%d, subpixel=%f\n", maximaLoc[i], top);
-	    top /= pix->width;
+	    top /= pix->cols;
 	    //get loc
-// 	    top = maximaLoc[i]/(float)(pix->width);
+// 	    top = maximaLoc[i]/(float)(pix->cols);
 	    //get peak
 	    peak.x = line.startPoint.x*(1-top) + top * line.endPoint.x;
 	    peak.y = line.startPoint.y*(1-top) + top * line.endPoint.y;
@@ -6174,7 +6212,7 @@ float mcvGetLinePeak(const CvMat *im, const Line &line,
   } // if
   else
   {
-    top = (pix->width-2)/2./(pix->width);
+    top = (pix->cols-2)/2./(pix->cols);
     topVal = -1;
     //push back
     peak.x = line.startPoint.x*(1-top) + top * line.endPoint.x;
@@ -6188,13 +6226,13 @@ float mcvGetLinePeak(const CvMat *im, const Line &line,
   maximaLoc.clear();
 
 //     //get new point
-//     top /= (pix->width);
+//     top /= (pix->cols);
 //     peak.x = line.startPoint.x*(1-top) + top * line.endPoint.x;
 //     peak.y = line.startPoint.y*(1-top) + top * line.endPoint.y;
 
   //clear
-  cvReleaseMat(&pix);
-  cvReleaseMat(&pixStep);
+  delete pix;
+  delete pixStep;
 
   //return mean of rising and falling val
   return  topVal;//MIN(risingVal, fallingVal);//no minus //(risingVal+fallingVal)/2;
@@ -6204,18 +6242,9 @@ float mcvGetLinePeak(const CvMat *im, const Line &line,
  *
  * \param vector the input vector to normalize
  */
-CvPoint2D32f mcvNormalizeVector(const CvPoint2D32f &v)
+cv::Point2f mcvNormalizeVector(const cv::Point2f &v)
 {
-  //return vector
-  CvPoint2D32f ret = v;
-
-  //normalize vector
-  float ssq = cvInvSqrt(ret.x*ret.x + ret.y*ret.y);
-  ret.x *= ssq;
-  ret.y *= ssq;
-
-  //return
-  return ret;
+  return v / cv::norm(v);
 }
 
 
@@ -6223,10 +6252,10 @@ CvPoint2D32f mcvNormalizeVector(const CvPoint2D32f &v)
  *
  * \param vector the input vector to normalize
  */
-CvPoint2D32f mcvNormalizeVector(const CvPoint &v)
+cv::Point2f mcvNormalizeVector(const cv::Point &v)
 {
   //return vector
-  return mcvNormalizeVector(cvPointTo32f(v));
+  return mcvNormalizeVector(cv::Point(v));
 
 }
 
@@ -6235,10 +6264,10 @@ CvPoint2D32f mcvNormalizeVector(const CvPoint &v)
  * \param x the x component
  * \param y the y component
  */
-CvPoint2D32f mcvNormalizeVector(float x, float y)
+cv::Point2f mcvNormalizeVector(float x, float y)
 {
   //return vector
-  return mcvNormalizeVector(cvPoint2D32f(x, y));
+  return mcvNormalizeVector(cv::Point(x, y));
 }
 
 
@@ -6248,12 +6277,10 @@ CvPoint2D32f mcvNormalizeVector(float x, float y)
  * \param v2 the second vector
  * \return the sum
  */
-CvPoint2D32f mcvAddVector(CvPoint2D32f v1, CvPoint2D32f v2)
+cv::Point2f mcvAddVector(cv::Point2f v1, cv::Point2f v2)
 {
-  //get sum
-  CvPoint2D32f sum = cvPoint2D32f(v1.x + v2.x, v1.y + v2.y);
   //return vector
-  return sum;
+  return v1 + v2;
 }
 
 
@@ -6263,14 +6290,9 @@ CvPoint2D32f mcvAddVector(CvPoint2D32f v1, CvPoint2D32f v2)
  * \param s the scalar
  * \return the sum
  */
-CvPoint2D32f mcvMultiplyVector(CvPoint2D32f v, float s)
+cv::Point2f mcvMultiplyVector(cv::Point2f v, float s)
 {
-  //get sum
-  CvPoint2D32f prod;
-  prod.x = v.x * s;
-  prod.y = v.y * s;
-  //return vector
-  return prod;
+  return v * s;
 }
 
 /** This functions computes the score of the given spline from the
@@ -6286,19 +6308,19 @@ CvPoint2D32f mcvMultiplyVector(CvPoint2D32f v, float s)
  *
  * \return the score
  */
-float mcvGetSplineScore(const CvMat* image, Spline& spline, float h,
+float mcvGetSplineScore(const cv::Mat* image, Spline& spline, float h,
                         int  jitterVal, float lengthRatio, float angleRatio)
 {
 
   //check that all control points for spline are inside the image
-  CvSize size = cvSize(image->width-1, image->height-1);
+  cv::Size size = cv::Size(image->cols-1, image->rows-1);
   //     SHOW_SPLINE(spline, "spline");
   for (int i=0; i<=spline.degree; i++)
     if (!mcvIsPointInside(spline.points[i], size))
 	    return -100.f;
 
   //get the pixels that belong to the spline
-  CvMat *pixels = mcvGetBezierSplinePixels(spline, h, size, false);
+  cv::Mat *pixels = mcvGetBezierSplinePixels(spline, h, size, false);
   if(!pixels)
     return -100.f;
 
@@ -6310,42 +6332,42 @@ float mcvGetSplineScore(const CvMat* image, Spline& spline, float h,
   //SHOW_MAT(pixels, "pixels");
   float score = 0.f;
   for (unsigned int j=0; j<jitter.size(); j++)
-    for (int i=0; i<pixels->height; i++)
+    for (int i=0; i<pixels->rows; i++)
     {
 	    //jitter in x
-      // 	    int k = MIN(MAX(CV_MAT_ELEM(*pixels, int, i, 0)+
-      // 			    jitter[j], 0), image->width-1);
-      // 	    fprintf(stderr, "col=%d\n & row=%d", k, CV_MAT_ELEM(*pixels, int, i, 1));
-	    score += cvGetReal2D(image, CV_MAT_ELEM(*pixels, int, i, 1),
-                           MIN(MAX(CV_MAT_ELEM(*pixels, int, i, 0) +
-                           jitter[j], 0), image->width-1));
+      // 	    int k = MIN(MAX(pixels->at<int>(i, 0)+
+      // 			    jitter[j], 0), image->cols-1);
+      // 	    fprintf(stderr, "col=%d\n & row=%d", k, pixels->at<int>(i, 1));
+	    score += image->at<float>(pixels->at<int>(i, 1),
+                           MIN(MAX(pixels->at<int>(i, 0) +
+                           jitter[j], 0), image->cols-1));
       // 	    //jitter the y
-      // 	    score += cvGetReal2D(image,
-      // 				 MIN(MAX(CV_MAT_ELEM(*pixels, int, i, 1)+
-      // 					 jitter[j], 0), image->height-1),
-      // 				 CV_MAT_ELEM(*pixels, int, i, 0));
+      // 	    score += cv::getReal2D(image,
+      // 				 MIN(MAX(pixels->at<int>(i, 1)+
+      // 					 jitter[j], 0), image->rows-1),
+      // 				 pixels->at<int>(i, 0));
     } // for i
 
-  //length: min 0 and max of 1 (normalized according to max of width and height
+  //length: min 0 and max of 1 (normalized according to max of cols and rows
   //of image)
-  //float length = ((float)pixels->height) / MAX(image->width, image->height);
+  //float length = ((float)pixels->rows) / MAX(image->cols, image->rows);
   float length = 0.f;
-  //     for (int i=0; i<pixels->height-1; i++)
+  //     for (int i=0; i<pixels->rows-1; i++)
   //     {
   // 	//get the vector between every two consecutive points
-  // 	CvPoint2D32f v =
-  // 	    mcvSubtractVector(cvPoint2D32f(CV_MAT_ELEM(*pixels, int, i+1, 0),
-  // 					   CV_MAT_ELEM(*pixels, int, i+1, 1)),
-  // 			      cvPoint2D32f(CV_MAT_ELEM(*pixels, int, i, 0),
-  // 					   CV_MAT_ELEM(*pixels, int, i, 1)));
+  // 	cv::Point2f v =
+  // 	    mcvSubtractVector(cv::Point(pixels->at<int>(i+1, 0),
+  // 					   pixels->at<int>(i+1, 1)),
+  // 			      cv::Point(pixels->at<int>(i, 0),
+  // 					   pixels->at<int>(i, 1)));
   // 	//add to length
-  // 	length += cvSqrt(v.x * v.x + v.y * v.y);
+  // 	length += cv::sqrt(v.x * v.x + v.y * v.y);
   //     }
   //get length between first and last control point
-  CvPoint2D32f v = mcvSubtractVector(spline.points[0], spline.points[spline.degree]);
-  length = cvSqrt(v.x * v.x + v.y * v.y);
+  cv::Point2f v = mcvSubtractVector(spline.points[0], spline.points[spline.degree]);
+  length = cv::sqrt(v.x * v.x + v.y * v.y);
   //normalize
-  length /= image->height; //MAX(image->width, image->height);
+  length /= image->rows; //MAX(image->cols, image->rows);
 
   //add measure of spline straightness: angle between vectors from points 1&2 and
   //points 2&3: clsoer to 1 the better (straight)
@@ -6354,11 +6376,11 @@ float mcvGetSplineScore(const CvMat* image, Spline& spline, float h,
   for (int i=0; i<spline.degree-1; i++)
   {
     //get first vector
-    CvPoint2D32f t1 = mcvNormalizeVector (mcvSubtractVector(spline.points[i+1],
+    cv::Point2f t1 = mcvNormalizeVector (mcvSubtractVector(spline.points[i+1],
                                                             spline.points[i]));
 
     //get second vector
-    CvPoint2D32f t2 = mcvNormalizeVector (mcvSubtractVector(spline.points[i+2],
+    cv::Point2f t2 = mcvNormalizeVector (mcvSubtractVector(spline.points[i+2],
                                                             spline.points[i+1]));
     //get angle
     angle += t1.x*t2.x + t1.y*t2.y;
@@ -6370,7 +6392,7 @@ float mcvGetSplineScore(const CvMat* image, Spline& spline, float h,
   angle /= 2;
 
   //add ratio of spline length
-  //score = .8*score + .4*pixels->height; //.8 & .3
+  //score = .8*score + .4*pixels->rows; //.8 & .3
 
   // 	printf("angle = %f\n", angle);
   //score = 0.6*score + 0.4*(angle*score); //.6 .4
@@ -6394,7 +6416,7 @@ float mcvGetSplineScore(const CvMat* image, Spline& spline, float h,
   //     printf(" final score=%.2f\n", score);
 
   //clear pixels
-  cvReleaseMat(&pixels);
+  delete pixels;
   jitter.clear();
 
   //return
@@ -6436,21 +6458,21 @@ vector<int> mcvGetJitterVector(int maxJitter)
  * \return the mean direction
  *
  */
-CvPoint2D32f  mcvGetPointsMeanVector(const CvMat *points, bool forward)
+cv::Point2f  mcvGetPointsMeanVector(const cv::Mat *points, bool forward)
 {
-  CvPoint2D32f mean, v;
+  cv::Point2f mean, v;
 
   //init
-  mean = cvPoint2D32f(0,0);
+  mean = cv::Point(0,0);
 
   //go forward direction
-  for (int i=1; i<points->height; ++i)
+  for (int i=1; i<points->rows; ++i)
   {
     //get the vector joining the two points
-    v = cvPoint2D32f(CV_MAT_ELEM(*points, float, i, 0) -
-                     CV_MAT_ELEM(*points, float, i-1, 0),
-                     CV_MAT_ELEM(*points, float, i, 1) -
-                     CV_MAT_ELEM(*points, float, i-1, 1));
+    v = cv::Point(points->at<float>(i, 0) -
+                     points->at<float>(i-1, 0),
+                     points->at<float>(i, 1) -
+                     points->at<float>(i-1, 1));
     //normalize
     v = mcvNormalizeVector(v);
     //get mean
@@ -6462,7 +6484,7 @@ CvPoint2D32f  mcvGetPointsMeanVector(const CvMat *points, bool forward)
 
   //check if to return forward or backward
   if (!forward)
-    mean = cvPoint2D32f(-mean.x, -mean.y);
+    mean = cv::Point(-mean.x, -mean.y);
 
   return mean;
 }
@@ -6489,7 +6511,7 @@ bool mcvCheckMergeSplines(const Spline& sp1, const Spline& sp2,
                           float centroidThreshold)
 {
   //get spline stats
-  CvPoint2D32f centroid1, centroid2;
+  cv::Point2f centroid1, centroid2;
   float theta1, theta2, length1, length2, r1, r2;
   float meanTheta1, meanTheta2, meanR1, meanR2;
   mcvGetSplineFeatures(sp1, &centroid1, &theta1, &r1,
@@ -6524,11 +6546,8 @@ bool mcvCheckMergeSplines(const Spline& sp1, const Spline& sp2,
   bool rNotOk = rDist >= 100;
   bool thetaNotOk = thetaDist >= .8;
 
-  bool merge = false;
-  //((thetaOk || meanThetaOk) && centroidOk) ||
-  if ((thetaOk || meanThetaOk) &&	(rOk || meanROk || centroidOk) &&
-    !rNotOk && !centroidNotOk && !thetaNotOk)
-    merge = true;
+  bool merge = ((thetaOk || meanThetaOk) &&	(rOk || meanROk || centroidOk) &&
+                !rNotOk && !centroidNotOk && !thetaNotOk);
 
 
   //debug
@@ -6544,14 +6563,14 @@ bool mcvCheckMergeSplines(const Spline& sp1, const Spline& sp2,
 
     fprintf(stderr, "\ttheta1=%.2f, theta2=%.2f\n", theta1, theta2);
 
-    CvMat* im = cvCreateMat(480, 640, CV_8UC3);
-    cvSet(im, cvRealScalar(0.));
+    cv::Mat* im = new cv::Mat(480, 640, CV_8UC3);
+    im->setTo(0.);
     //draw splines
     mcvDrawSpline(im, sp1, CV_RGB(255, 0, 0), 1);
     mcvDrawSpline(im, sp2, CV_RGB(0, 255, 0), 1);
     SHOW_IMAGE(im, "Check Merge Splines", 10);
     //clear
-    cvReleaseMat(&im);
+    delete im;
 
   }//#endif
 
@@ -6576,30 +6595,27 @@ bool mcvCheckMergeSplines(const Spline& sp1, const Spline& sp2,
  *    -1-->1 with 1 best and -1 worst
  *
  */
-void mcvGetPointsFeatures(const CvMat* points, CvPoint2D32f* centroid,
+void mcvGetPointsFeatures(const cv::Mat* points, cv::Point2f* centroid,
                           float* theta, float* r, float* length,
                           float* meanTheta, float* meanR, float* curveness)
 {
 
   //get start and end point
-  CvPoint2D32f start = cvPoint2D32f(CV_MAT_ELEM(*points, float, 0, 0),
-                                    CV_MAT_ELEM(*points, float, 0, 1));
-  CvPoint2D32f end = cvPoint2D32f(CV_MAT_ELEM(*points, float,
-                                              points->height-1, 0),
-                                  CV_MAT_ELEM(*points, float,
-                                              points->height-1, 1));
+    cv::Point2f start = cv::Point(points->at<float>(0, 0),
+                                  points->at<float>(0, 1));
+    cv::Point2f end = cv::Point(points->at<float>(points->rows-1, 0),
+                                points->at<float>(points->rows-1, 1));
   //compute centroid
   if (centroid)
   {
     //get sum of control points
-    *centroid = cvPoint2D32f(0, 0);
-    for (int i=0; i<=points->height; ++i)
-	    *centroid = mcvAddVector(*centroid,
-                               cvPoint2D32f(CV_MAT_ELEM(*points, float, i, 0),
-                                            CV_MAT_ELEM(*points, float, i, 1)));
+    *centroid = cv::Point(0, 0);
+    for (int i=0; i<=points->rows; ++i)
+        *centroid = mcvAddVector(*centroid,
+                                 cv::Point(points->at<float>(i, 0),
+                                           points->at<float>(i, 1)));
     //take mean
-    *centroid = cvPoint2D32f(centroid->x / (points->height),
-                             centroid->y / (points->height));
+    *centroid /= points->rows;
     }
 
   //compute theta
@@ -6614,7 +6630,7 @@ void mcvGetPointsFeatures(const CvMat* points, CvPoint2D32f* centroid,
     mcvLineXY2RTheta(line, *r, *theta);
     //add pi if negative
     if (*theta<0)
-      *theta  += CV_PI;
+      *theta += CV_PI;
   }
 
   //mean theta
@@ -6624,14 +6640,14 @@ void mcvGetPointsFeatures(const CvMat* points, CvPoint2D32f* centroid,
     *meanR = 0;
 
     //loop and get theta
-    for (int i=0; i<points->height-1; i++)
+    for (int i=0; i<points->rows-1; i++)
     {
       //get the line
       Line line;
-      line.startPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, i, 0),
-                                      CV_MAT_ELEM(*points, float, i, 1));
-      line.endPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, i+1, 0),
-                                    CV_MAT_ELEM(*points, float, i+1, 1));
+      line.startPoint = cv::Point(points->at<float>(i, 0),
+                                  points->at<float>(i, 1));
+      line.endPoint = cv::Point(points->at<float>(i+1, 0),
+                                points->at<float>(i+1, 1));
       //get theta and r
       float r, t;
       mcvLineXY2RTheta(line, r, t);
@@ -6643,49 +6659,49 @@ void mcvGetPointsFeatures(const CvMat* points, CvPoint2D32f* centroid,
     }
 
     //normalize
-    *meanTheta /= points->height - 1;
-    *meanR /= points->height - 1;
+    *meanTheta /= points->rows - 1;
+    *meanR /= points->rows - 1;
   }
 
   //compute length of spline: length of vector between first and last point
   if (length)
   {
     //get the vector
-    CvPoint2D32f v = mcvSubtractVector(start, end);
+    cv::Point2f v = mcvSubtractVector(start, end);
 
     //compute length
-    *length = cvSqrt(v.x * v.x + v.y * v.y);
+    *length = cv::norm(v);
   }
 
   //compute curveness
   if (curveness)
   {
     *curveness = 0;
-    if (points->height>2)
+    if (points->rows>2)
     {
       //initialize
-      CvPoint2D32f p0;
-      CvPoint2D32f p1 = start;
-      CvPoint2D32f p2 = cvPoint2D32f(CV_MAT_ELEM(*points, float, 1, 0),
-                                      CV_MAT_ELEM(*points, float, 1, 1));
+      cv::Point2f p0;
+      cv::Point2f p1 = start;
+      cv::Point2f p2 = cv::Point(points->at<float>(1, 0),
+                                      points->at<float>(1, 1));
 
-      for (int i=0; i<points->height-2; i++)
+      for (int i=0; i<points->rows-2; i++)
       {
         //go next
         p0 = p1;
         p1 = p2;
-        p2 = cvPoint2D32f(CV_MAT_ELEM(*points, float, i+2, 0),
-                          CV_MAT_ELEM(*points, float, i+2, 1));
+        p2 = cv::Point(points->at<float>(i+2, 0),
+                          points->at<float>(i+2, 1));
         //get first vector
-        CvPoint2D32f t1 = mcvNormalizeVector(mcvSubtractVector(p1, p0));
+        cv::Point2f t1 = mcvNormalizeVector(mcvSubtractVector(p1, p0));
 
         //get second vector
-        CvPoint2D32f t2 = mcvNormalizeVector (mcvSubtractVector(p2, p1));
+        cv::Point2f t2 = mcvNormalizeVector (mcvSubtractVector(p2, p1));
         //get angle
         *curveness += t1.x*t2.x + t1.y*t2.y;
       }
     //get mean
-    *curveness /= points->height-2;
+    *curveness /= points->rows-2;
     }
   }
 }
@@ -6708,7 +6724,7 @@ void mcvGetPointsFeatures(const CvMat* points, CvPoint2D32f* centroid,
  *    -1-->1 with 1 best and -1 worst
  *
  */
-void mcvGetSplineFeatures(const Spline& spline, CvPoint2D32f* centroid,
+void mcvGetSplineFeatures(const Spline& spline, cv::Point2f* centroid,
                           float* theta, float* r, float* length,
                           float* meanTheta, float* meanR, float* curveness)
 {
@@ -6716,12 +6732,11 @@ void mcvGetSplineFeatures(const Spline& spline, CvPoint2D32f* centroid,
   if (centroid)
   {
     //get sum of control points
-    *centroid = cvPoint2D32f(0, 0);
+    *centroid = cv::Point(0, 0);
     for (int i=0; i<=spline.degree; ++i)
       *centroid = mcvAddVector(*centroid, spline.points[i]);
     //take mean
-    *centroid = cvPoint2D32f(centroid->x / (spline.degree+1),
-                             centroid->y / (spline.degree+1));
+    *centroid /= spline.degree + 1;
   }
 
   //compute theta
@@ -6747,21 +6762,21 @@ void mcvGetSplineFeatures(const Spline& spline, CvPoint2D32f* centroid,
     *meanTheta = 0;
     *meanR = 0;
     //get points on the spline
-    CvMat* points = mcvEvalBezierSpline(spline, .1);
+    cv::Mat* points = mcvEvalBezierSpline(spline, .1);
     //loop and get theta
-    for (int i=0; i<points->height-1; i++)
+    for (int i=0; i<points->rows-1; i++)
     {
 	    //get the line
 	    Line line;
-	    line.startPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, i, 0),
-                                     CV_MAT_ELEM(*points, float, i, 1));
-	    line.endPoint = cvPoint2D32f(CV_MAT_ELEM(*points, float, i+1, 0),
-                                   CV_MAT_ELEM(*points, float, i+1, 1));
+	    line.startPoint = cv::Point(points->at<float>(i, 0),
+                                     points->at<float>(i, 1));
+	    line.endPoint = cv::Point(points->at<float>(i+1, 0),
+                                   points->at<float>(i+1, 1));
 	    //get theta and r
 	    float r, t;
 	    mcvLineXY2RTheta(line, r, t);
 	    //add pi if neg
-      #warning "add pi to theta calculations for spline feature"
+      //#warning "add pi to theta calculations for spline feature"
 	    //if (t<0) t += CV_PI;
 	    //add
 	    t = mcvGetLineAngle(line);
@@ -6770,23 +6785,23 @@ void mcvGetSplineFeatures(const Spline& spline, CvPoint2D32f* centroid,
     }
 
     //normalize
-    *meanTheta /= points->height - 1;
-    *meanR /= points->height - 1;
+    *meanTheta /= points->rows - 1;
+    *meanR /= points->rows - 1;
 
     //clear
-    cvReleaseMat(&points);
+    delete points;
   }
 
   //compute length of spline: length of vector between first and last point
   if (length)
   {
     //get the vector
-    CvPoint2D32f v = cvPoint2D32f(spline.points[0].x -
+    cv::Point2f v = cv::Point(spline.points[0].x -
                                   spline.points[spline.degree].x,
                                   spline.points[0].y -
                                   spline.points[spline.degree].y);
     //compute length
-    *length = cvSqrt(v.x * v.x + v.y * v.y);
+    *length = cv::norm(v);
   }
 
   //compute curveness
@@ -6796,12 +6811,12 @@ void mcvGetSplineFeatures(const Spline& spline, CvPoint2D32f* centroid,
     for (int i=0; i<spline.degree-1; i++)
     {
 	    //get first vector
-	    CvPoint2D32f t1 =
+	    cv::Point2f t1 =
         mcvNormalizeVector(mcvSubtractVector(spline.points[i+1],
                                              spline.points[i]));
 
 	    //get second vector
-	    CvPoint2D32f t2 =
+	    cv::Point2f t2 =
         mcvNormalizeVector(mcvSubtractVector(spline.points[i+2],
                                              spline.points[i+1]));
 	    //get angle
@@ -6820,9 +6835,9 @@ void mcvGetSplineFeatures(const Spline& spline, CvPoint2D32f* centroid,
  * \return difference vector v1 - v2
  *
  */
-CvPoint2D32f  mcvSubtractVector(const CvPoint2D32f& v1, const CvPoint2D32f& v2)
+cv::Point2f  mcvSubtractVector(const cv::Point2f& v1, const cv::Point2f& v2)
 {
-  return cvPoint2D32f(v1.x - v2.x, v1.y - v2.y);
+  return v1 - v2;
 }
 
 /** This functions computes the vector norm
@@ -6831,10 +6846,10 @@ CvPoint2D32f  mcvSubtractVector(const CvPoint2D32f& v1, const CvPoint2D32f& v2)
  * \return norm of the vector
  *
  */
-float  mcvGetVectorNorm(const CvPoint2D32f& v)
+float  mcvGetVectorNorm(const cv::Point2f& v)
 {
 
-  return cvSqrt(v.x * v.x + v.y * v.y);
+  return cv::sqrt(v.x * v.x + v.y * v.y);
 }
 
 
@@ -6868,8 +6883,7 @@ bool mcvCheckMergeLines(const Line& line1, const Line& line2,
   bool rOk = rDist <= rThreshold;
   bool thetaOk = thetaDist <= thetaThreshold;
 
-  bool merge = false;
-  if (rOk && thetaOk) merge = true;
+  bool merge = rOk && thetaOk;
 
   //debug
   if(DEBUG_LINES) {//#ifdef DEBUG_GET_STOP_LINES
@@ -6879,14 +6893,14 @@ bool mcvCheckMergeLines(const Line& line1, const Line& line2,
             merge? "Merged" : "Not   ", thetaDist, rDist);
 
 
-    CvMat* im = cvCreateMat(480, 640, CV_8UC3);
-    cvSet(im, cvRealScalar(0.));
+    cv::Mat* im = new cv::Mat(480, 640, CV_8UC3);
+    im->setTo(0.);
     //draw lines
     mcvDrawLine(im, line1, CV_RGB(255, 0, 0), 1);
     mcvDrawLine(im, line2, CV_RGB(0, 255, 0), 1);
     SHOW_IMAGE(im, "Check Merge Lines", 10);
     //clear
-    cvReleaseMat(&im);
+    delete im;
 
   }//#endif
 
@@ -6913,15 +6927,13 @@ Spline mcvLineXY2Spline(const Line& line, int degree)
   spline.points[degree] = line.endPoint;
 
   //get direction of line
-  CvPoint2D32f dir = mcvSubtractVector(line.endPoint, line.startPoint);
+  cv::Point2f dir = mcvSubtractVector(line.endPoint, line.startPoint);
   //get intermediate points
   for (int j=1; j<degree; ++j)
   {
     //get point
-    CvPoint2D32f point;
     float t = j / (float)degree;
-    point.x = line.startPoint.x + t * dir.x;
-    point.y = line.startPoint.y + t * dir.y;
+    cv::Point2f point = line.startPoint + t * dir;
     //put it
     spline.points[j] = point;
   }
@@ -6941,7 +6953,7 @@ Spline mcvLineXY2Spline(const Line& line, int degree)
 float mcvGetLineAngle(const Line& line)
 {
   //get vector from start to end
-  CvPoint2D32f v = mcvNormalizeVector(mcvSubtractVector(line.startPoint,
+  cv::Point2f v = mcvNormalizeVector(mcvSubtractVector(line.startPoint,
                                                         line.endPoint));
   //angle which is acos(v.x) as we multiply by (1,0) which
   //cancels the second component
@@ -6963,7 +6975,7 @@ float mcvGetLineAngle(const Line& line)
  * \return the line color
  *
  */
-LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
+LineColor mcvGetPointsColor(const cv::Mat* im, const cv::Mat* points,
                             int window, float numYellowMin,
                             float rgMin, float rgMax,
                             float gbMin, float rbMin,
@@ -6971,10 +6983,10 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
 {
 
   //check if color image
-  if (cvGetElemType(im) != CV_8UC3)
+  if (im->type() != CV_8UC3)
     return LINE_COLOR_WHITE;
 
-  //    //half the width of the window
+  //    //half the cols of the window
   //     int window = 3;
 
   //     //thresholds
@@ -6990,7 +7002,7 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
   float binWidth = 255. / numBins;
 
   //allocate the histogram
-  CvMat* hist = cvCreateMat(1, histLen, CV_32FC1);
+  cv::Mat* hist = new cv::Mat(1, histLen, CV_32FC1);
 
   //rbf centroids
   int rbfNumCentroids = 10; //10; //10;
@@ -7007,15 +7019,13 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
   for (int i=0; i<points->rows; ++i)
   {
     //clear histogram
-    cvSet(hist, cvRealScalar(0));
+    hist->setTo(0);
 
     //get the window indices
-    int xmin = MAX(cvRound(CV_MAT_ELEM(*points, float, i, 0)-window), 0);
-    int xmax = MIN(cvRound(CV_MAT_ELEM(*points, float, i, 0)+window),
-                   im->cols);
-    int ymin = MAX(cvRound(CV_MAT_ELEM(*points, float, i, 1)-window), 0);
-    int ymax = MIN(cvRound(CV_MAT_ELEM(*points, float, i, 1)+window),
-                   im->rows);
+    int xmin = MAX(cvRound(points->at<float>(i, 0)-window), 0);
+    int xmax = MIN(cvRound(points->at<float>(i, 0)+window), im->cols);
+    int ymin = MAX(cvRound(points->at<float>(i, 1)-window), 0);
+    int ymax = MIN(cvRound(points->at<float>(i, 1)+window), im->rows);
 
     //get mean for every channel
     float r=0.f, g=0.f, b=0.f, rr, gg, bb;
@@ -7024,9 +7034,9 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
 	    for (int y=ymin; y<=ymax; y++)
 	    {
         //get colors
-        rr = (im->data.ptr + im->step*y)[x*3];
-        gg = (im->data.ptr + im->step*y)[x*3+1];
-        bb = (im->data.ptr + im->step*y)[x*3+2];
+        rr = (im->data + im->step*y)[x*3];
+        gg = (im->data + im->step*y)[x*3+1];
+        bb = (im->data + im->step*y)[x*3+2];
         //add to totals
         r += rr;
         g += gg;
@@ -7036,11 +7046,11 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
         {
           //compute histogram
           bin = MIN((int)(rr / binWidth), numBins);
-          hist->data.fl[bin] ++;
+          ((float*)hist->data)[bin] ++;
           bin = MIN((int)(gg / binWidth), numBins);
-          hist->data.fl[bin + numBins] ++;
+          ((float*)hist->data)[bin + numBins] ++;
           bin = MIN((int)(bb / binWidth), numBins);
-          hist->data.fl[bin + 2*numBins] ++;
+          ((float*)hist->data)[bin + 2*numBins] ++;
         }
       }
 
@@ -7058,9 +7068,9 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
     //add differences to histogram
     if (rbf)
     {
-	    hist->data.fl[hist->width-2] = fabs(rg);
-	    hist->data.fl[hist->width-1] = fabs(gb);
-	    hist->data.fl[hist->width] = fabs(rb);
+	    ((float*)hist->data)[hist->cols-2] = fabs(rg);
+	    ((float*)hist->data)[hist->cols-1] = fabs(gb);
+	    ((float*)hist->data)[hist->cols] = fabs(rb);
 
 	    //compute output of RBF model
 	    //
@@ -7071,7 +7081,7 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
         float d = 0., t;
         for (int k=0; k<histLen; k++)
         {
-            t = hist->data.fl[k] -
+            t = ((float*)hist->data)[k] -
           rbfCentroids[j*histLen + k];
             d += t*t;
         }
@@ -7104,7 +7114,7 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
     clr = LINE_COLOR_YELLOW;
 
   //release
-  cvReleaseMat(&hist);
+  delete hist;
 
   return clr;
 }
@@ -7118,7 +7128,7 @@ LineColor mcvGetPointsColor(const CvMat* im, const CvMat* points,
  * \param boxes a vector of output bounding boxes
  */
 void mcvGetSplinesBoundingBoxes(const vector<Spline> &splines, LineType type,
-                                CvSize size, vector<CvRect> &boxes)
+                                cv::Size size, vector<cv::Rect> &boxes)
 {
   //copy lines to boxes
   int start, end;
@@ -7129,24 +7139,24 @@ void mcvGetSplinesBoundingBoxes(const vector<Spline> &splines, LineType type,
     case LINE_VERTICAL:
       for(unsigned int i=0; i<splines.size(); ++i)
       {
-        //get min and max x and add the bounding box covering the whole height
+        //get min and max x and add the bounding box covering the whole rows
         start = (int)fmin(splines[i].points[0].x,
                           splines[i].points[splines[i].degree].x);
         end = (int)fmax(splines[i].points[0].x,
                         splines[i].points[splines[i].degree].x);
-        boxes.push_back(cvRect(start, 0, end-start+1, size.height-1));
+        boxes.push_back(cv::Rect(start, 0, end-start+1, size.height-1));
       }
       break;
 
     case LINE_HORIZONTAL:
       for(unsigned int i=0; i<splines.size(); ++i)
       {
-        //get min and max y and add the bounding box covering the whole width
+        //get min and max y and add the bounding box covering the whole cols
         start = (int)fmin(splines[i].points[0].y,
                           splines[i].points[splines[i].degree].y);
         end = (int)fmax(splines[i].points[0].y,
                         splines[i].points[splines[i].degree].y);
-        boxes.push_back(cvRect(0, start, size.width-1, end-start+1));
+        boxes.push_back(cv::Rect(0, start, size.width-1, end-start+1));
       }
       break;
   }
@@ -7160,7 +7170,7 @@ void mcvGetSplinesBoundingBoxes(const vector<Spline> &splines, LineType type,
  * \param boxes a vector of output bounding boxes
  */
 void mcvGetLinesBoundingBoxes(const vector<Line> &lines, LineType type,
-                              CvSize size, vector<CvRect> &boxes)
+                              cv::Size size, vector<cv::Rect> &boxes)
 {
   //copy lines to boxes
   int start, end;
@@ -7171,20 +7181,20 @@ void mcvGetLinesBoundingBoxes(const vector<Line> &lines, LineType type,
     case LINE_VERTICAL:
       for(unsigned int i=0; i<lines.size(); ++i)
       {
-        //get min and max x and add the bounding box covering the whole height
+        //get min and max x and add the bounding box covering the whole rows
         start = (int)fmin(lines[i].startPoint.x, lines[i].endPoint.x);
         end = (int)fmax(lines[i].startPoint.x, lines[i].endPoint.x);
-        boxes.push_back(cvRect(start, 0, end-start+1, size.height-1));
+        boxes.push_back(cv::Rect(start, 0, end-start+1, size.height-1));
       }
       break;
 
     case LINE_HORIZONTAL:
       for(unsigned int i=0; i<lines.size(); ++i)
       {
-        //get min and max y and add the bounding box covering the whole width
+        //get min and max y and add the bounding box covering the whole cols
   	    start = (int)fmin(lines[i].startPoint.y, lines[i].endPoint.y);
         end = (int)fmax(lines[i].startPoint.y, lines[i].endPoint.y);
-        boxes.push_back(cvRect(0, start, size.width-1, end-start+1));
+        boxes.push_back(cv::Rect(0, start, size.width-1, end-start+1));
       }
       break;
     }
@@ -7196,8 +7206,8 @@ void mcvGetLinesBoundingBoxes(const vector<Line> &lines, LineType type,
  *
  * \param lines vector of lines
  * \param scores vector of line scores
- * \param wMu expected lane width
- * \param wSigma std deviation of lane width
+ * \param wMu expected lane cols
+ * \param wSigma std deviation of lane cols
  */
 void mcvCheckLaneWidth(vector<Line> &lines, vector<float> &scores,
                        float wMu, float wSigma)
@@ -7271,3 +7281,4 @@ void dummy()
 
 } // namespace LaneDetector
 
+#pragma GCC diagnostic pop

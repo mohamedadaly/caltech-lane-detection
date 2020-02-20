@@ -8,9 +8,11 @@
 #define INVERSEPERSPECTIVEMAPPING_HH_
 
 
-#include "cv.h"
-#include "mcv.hh"
 #include <list>
+
+#include <opencv2/core.hpp>
+
+#include "mcv.hh"
 
 //conf file for cameraInfo
 #include "CameraInfoOpt.h"
@@ -26,15 +28,15 @@ namespace LaneDetector
 typedef struct IPMInfo
 {
   ///min and max x-value on ground in world coordinates
-  FLOAT xLimits[2];
+  LD_FLOAT xLimits[2];
   ///min and max y-value on ground in world coordinates
-  FLOAT yLimits[2];
+  LD_FLOAT yLimits[2];
   ///conversion between mm in world coordinate on the ground
   ///in x-direction and pixel in image
-  FLOAT xScale;
+  LD_FLOAT xScale;
   ///conversion between mm in world coordinate on the ground
   ///in y-direction and pixel in image
-  FLOAT yScale;
+  LD_FLOAT yScale;
   ///width
   int width;
   ///height
@@ -62,15 +64,15 @@ typedef struct CameraInfo
   ///optical center coordinates in image frame (origin is (0,0) at top left)
   FLOAT_POINT2D opticalCenter;
   ///height of camera above ground
-  FLOAT cameraHeight;
+  LD_FLOAT cameraHeight;
   ///pitch angle in radians (+ve downwards)
-  FLOAT pitch;
+  LD_FLOAT pitch;
   ///yaw angle in radians (+ve clockwise)
-  FLOAT yaw;
+  LD_FLOAT yaw;
   ///width of images
-  FLOAT imageWidth;
+  LD_FLOAT imageWidth;
   ///height of images
-  FLOAT imageHeight;
+  LD_FLOAT imageHeight;
 }CameraInfo;
 
 //functions definitions
@@ -85,9 +87,9 @@ typedef struct CameraInfo
  * \param focalLength focal length (in x and y direction)
  * \param cameraInfo the camera parameters
  */
-void mcvGetIPM(const CvMat* inImage, CvMat* outImage,
+void mcvGetIPM(const cv::Mat* inImage, cv::Mat* outImage,
                IPMInfo *ipmInfo, const CameraInfo *cameraInfo,
-               list<CvPoint>* outPoints=NULL);
+               list<cv::Point>* outPoints=NULL);
 
 
 /**
@@ -100,8 +102,8 @@ void mcvGetIPM(const CvMat* inImage, CvMat* outImage,
  * \param cemaraInfo the input camera parameters
  *
  */
-void mcvTransformImage2Ground(const CvMat *inPoints,
-                              CvMat *outPoints, const CameraInfo *cameraInfo);
+void mcvTransformImage2Ground(const cv::Mat *inPoints,
+                              cv::Mat *outPoints, const CameraInfo *cameraInfo);
 
 
 /**
@@ -113,8 +115,8 @@ void mcvTransformImage2Ground(const CvMat *inPoints,
  * \param cameraInfo the camera parameters
  *
  */
-void mcvTransformGround2Image(const CvMat *inPoints,
-                              CvMat *outPoints, const CameraInfo *cameraInfo);
+void mcvTransformGround2Image(const cv::Mat *inPoints,
+                              cv::Mat *outPoints, const CameraInfo *cameraInfo);
 
 /**
  * Computes the vanishing point in the image plane uv. It is
@@ -154,7 +156,7 @@ void mcvInitCameraInfo (char *const fileName, CameraInfo *cameraInfo);
  * \param size the input image size
  *
  */
- void mcvScaleCameraInfo (CameraInfo *cameraInfo, CvSize size);
+ void mcvScaleCameraInfo (CameraInfo *cameraInfo, cv::Size size);
 
 /**
  * Gets the extent of the image on the ground plane given the camera parameters
@@ -174,7 +176,7 @@ void mcvGetIPMExtent(const CameraInfo *cameraInfo, IPMInfo *ipmInfo);
  * \param ipmInfo the ipm info from mcvGetIPM
  *
  */
-void mcvTransformImIPM2Ground(const CvMat *inMat, CvMat* outMat,
+void mcvTransformImIPM2Ground(const cv::Mat *inMat, cv::Mat* outMat,
                               const IPMInfo *ipmInfo);
 
 /**
@@ -186,7 +188,7 @@ void mcvTransformImIPM2Ground(const CvMat *inMat, CvMat* outMat,
  * \param cameraInfo the camera info
  *
  */
-void mcvTransformImIPM2Im(const CvMat *inMat, CvMat* outMat,
+void mcvTransformImIPM2Im(const cv::Mat *inMat, cv::Mat* outMat,
                           const IPMInfo *ipmInfo,
                           const CameraInfo *cameraInfo);
 
